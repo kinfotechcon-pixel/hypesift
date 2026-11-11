@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hypesift</title>
+<meta name="description" content="Judge real AI claims as signal, hype or fine print. Fresh claims every week, each checked against its source.">
+<meta name="theme-color" content="#0b1120">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Hypesift: signal or hype?">
+<meta property="og:description" content="Judge real AI claims as signal, hype or fine print. Fresh claims every week, each checked against its source.">
+<meta property="og:url" content="https://kinfotechcon-pixel.github.io/hypesift/">
+<meta property="og:image" content="https://kinfotechcon-pixel.github.io/hypesift/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Hypesift: signal or hype?">
+<meta name="twitter:description" content="Judge real AI claims as signal, hype or fine print. Fresh claims every week, each checked against its source.">
+<meta name="twitter:image" content="https://kinfotechcon-pixel.github.io/hypesift/og.png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <a class="brand" href="#" id="home" aria-label="Hypesift home">
+      <svg viewBox="0 0 64 64" role="img" aria-label="Hypesift logo: a noisy signal passes through a filter and comes out as a clean wave">
+        <rect x="1.5" y="1.5" width="61" height="61" rx="16" fill="#131b2f" stroke="#27345a" stroke-width="2"/>
+        <path d="M8 33 L11 21 L14 43 L17 17 L20 46 L23 25 L26 38" fill="none" stroke="#ff7a6b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M30 13 V25 M30 39 V51 M35 13 V25 M35 39 V51" stroke="#3ee0c1" stroke-width="3.4" stroke-linecap="round"/>
+        <path d="M33 29 V35" stroke="#3ee0c1" stroke-width="2" stroke-linecap="round" opacity=".5"/>
+        <path d="M39 32 C43 21 48 21 51 32 S59 43 60 32" fill="none" stroke="#3ee0c1" stroke-width="3.4" stroke-linecap="round"/>
+      </svg>
+      <span class="word"><i>Hype</i><b>sift</b></span>
+    </a>
+    <div class="navs">
+      <div class="hud" id="hud" hidden>
+        <span>Case <strong id="hCase">1</strong>/<span id="hTotal">8</span></span>
+        <span class="hide-s">Score <strong id="hScore">0</strong></span>
+      </div>
+      <button class="nav" id="navInbox" type="button" hidden>Inbox</button>
+      <button class="nav" id="navComm" type="button" hidden>Board</button>
+      <button class="nav" id="navProfile" type="button">Profile</button>
+    </div>
+  </div>
+  <div class="dots" id="dots" hidden></div>
+
+  <main id="app"></main>
+  <p class="foot">Every claim is checked against its linked source.</p>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+<script src="config.js"></script>
+<script src="packs.js"></script>
+<script src="backend.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
