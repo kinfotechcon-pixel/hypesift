@@ -217,7 +217,7 @@
     app.appendChild(hero); app.appendChild(stats);
     if (DB) {
       var sg = el("button", { class: "btn ghost", type: "button", text: "Suggest a claim" });
-      sg.onclick = function () { submitScreen(); window.scrollTo(0, 0); };
+      sg.onclick = function () { go("submit"); };
       app.appendChild(el("div", { class: "row" }, [sg]));
     }
     if (PACKS.length > 1) {
@@ -234,6 +234,7 @@
   function start(pk) {
     CASES = pk.cases;
     S = { pack: pk, order: shuffle(CASES.map(function (_, i) { return i; })), i: 0, score: 0, streak: 0, log: [], pick: {} };
+    commPack = pk; mark("play");
     play(); window.scrollTo(0, 0);
   }
 
@@ -435,7 +436,7 @@
     var again = el("button", { class: "btn", type: "button", text: "Play again" });
     again.onclick = function () { start(pk); };
     var row = [again];
-    if (DB) { var bd = el("button", { class: "btn ghost", type: "button", text: "Leaderboard" }); bd.onclick = function () { community(pk); window.scrollTo(0, 0); }; row.push(bd); }
+    if (DB) { var bd = el("button", { class: "btn ghost", type: "button", text: "Leaderboard" }); bd.onclick = function () { commPack = pk; go("community"); }; row.push(bd); }
     var base = "Hypesift: " + total + "/" + max + " (" + rank + "). " + vRight + "/" + n + " right calls. Signal or hype?";
     var shareText = base + " " + SITE;
     var copy = el("button", { class: "btn ghost", type: "button", text: "Copy result" });
@@ -446,7 +447,7 @@
     };
     if (DB) {
       var sg = el("button", { class: "btn ghost", type: "button", text: "Suggest a claim" });
-      sg.onclick = function () { submitScreen(); window.scrollTo(0, 0); };
+      sg.onclick = function () { go("submit"); };
       row.push(sg);
     }
     if (navigator.share) {
@@ -494,7 +495,7 @@
     if (!commPack) commPack = PACKS[PACKS.length - 1];
     app.innerHTML = "";
     var back = el("button", { class: "btn ghost", type: "button", text: "Back" });
-    back.onclick = function () { intro(); window.scrollTo(0, 0); };
+    back.onclick = goBack;
     var head = el("section", { class: "hero" }, [el("h1", { class: "rank", text: "Leaderboard" }), el("div", { class: "row" }, [back])]);
     app.appendChild(head);
 
@@ -507,7 +508,7 @@
       PACKS.slice().reverse().forEach(function (p2) {
         var tb = el("button", { class: "nav", type: "button", text: p2.label });
         if (p2 === commPack) tb.style.borderColor = "var(--signal)";
-        tb.onclick = function () { community(p2); };
+        tb.onclick = function () { start(p2); };
         tabs.appendChild(tb);
       });
       app.appendChild(tabs);
@@ -663,7 +664,7 @@
   function submitScreen() {
     screen = "submit"; setChrome("submit"); app.innerHTML = "";
     var back = el("button", { class: "btn ghost", type: "button", text: "Back" });
-    back.onclick = function () { intro(); window.scrollTo(0, 0); };
+    back.onclick = goBack;
     app.appendChild(el("section", { class: "hero" }, [
       el("h1", { class: "rank", text: "Suggest a claim" }),
       el("p", { text: "Spotted an AI headline that needs checking? Send it in. Each one is verified before it joins a pack." }),
@@ -711,7 +712,7 @@
   function inbox() {
     screen = "inbox"; setChrome("inbox"); app.innerHTML = "";
     var back = el("button", { class: "btn ghost", type: "button", text: "Back" });
-    back.onclick = function () { intro(); window.scrollTo(0, 0); };
+    back.onclick = goBack;
     app.appendChild(el("section", { class: "hero" }, [
       el("h1", { class: "rank", text: "Inbox" }),
       el("p", { text: allSubs.length ? allSubs.length + (allSubs.length === 1 ? " suggestion" : " suggestions") + " waiting. Verify each before it joins a pack." : "No suggestions yet." }),
@@ -744,7 +745,7 @@
   function profile() {
     screen = "profile"; setChrome("profile"); app.innerHTML = "";
     var back = el("button", { class: "btn ghost", type: "button", text: "Back" });
-    back.onclick = function () { intro(); window.scrollTo(0, 0); };
+    back.onclick = goBack;
     var runs = P.runs, bestPct = 0;
     runs.forEach(function (r) { bestPct = Math.max(bestPct, Math.round(r.score / r.max * 100)); });
     var head = el("section", { class: "hero" }, [el("h1", { class: "rank", text: "Your profile" }), el("div", { class: "row" }, [back])]);
@@ -788,10 +789,35 @@
     [head, stats, cal, hist, bs, el("div", { class: "row" }, [reset])].forEach(function (x) { app.appendChild(x); });
   }
 
-  $("#home").onclick = function (e) { e.preventDefault(); intro(); };
-  $("#navProfile").onclick = function () { profile(); window.scrollTo(0, 0); };
-  $("#navComm").onclick = function () { community(); window.scrollTo(0, 0); };
-  $("#navInbox").onclick = function () { inbox(); window.scrollTo(0, 0); };
+  /* ---------- navigation: the browser Back button steps back through screens ---------- */
+  function mark(name) {
+    try {
+      var cur = history.state && history.state.s;
+      if (cur === name) history.replaceState({ s: name }, "");
+      else history.pushState({ s: name }, "");
+    } catch (e) {}
+  }
+  function route(name) {
+    if (name === "community") community();
+    else if (name === "profile") profile();
+    else if (name === "submit") submitScreen();
+    else if (name === "inbox") inbox();
+    else intro();
+    window.scrollTo(0, 0);
+  }
+  function go(name) { mark(name); route(name); }
+  function goBack() {
+    var cur = history.state && history.state.s;
+    if (cur && cur !== "intro") { try { history.back(); return; } catch (e) {} }
+    route("intro");
+  }
+  try { history.replaceState({ s: "intro" }, ""); } catch (e) {}
+  window.addEventListener("popstate", function (e) { route(e.state && e.state.s ? e.state.s : "intro"); });
+
+  $("#home").onclick = function (e) { e.preventDefault(); go("intro"); };
+  $("#navProfile").onclick = function () { go("profile"); };
+  $("#navComm").onclick = function () { go("community"); };
+  $("#navInbox").onclick = function () { go("inbox"); };
   document.addEventListener("keydown", function (e) {
     if (screen !== "play" || !UI || e.metaKey || e.ctrlKey || e.altKey) return;
     var tg = e.target && e.target.tagName;
