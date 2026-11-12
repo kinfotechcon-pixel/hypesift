@@ -3,6 +3,11 @@
 
   var D = window.HYPESIFT_DATA || { checked: "", packs: [], tips: {} };
   var CHECKED = D.checked, PACKS = D.packs, TIPS = D.tips;
+  if (!Array.isArray(PACKS) || !PACKS.length) {
+    var box = document.querySelector("#app");
+    if (box) box.textContent = "Cases didn't load. Refresh to try again.";
+    return;
+  }
   var CASES = PACKS[PACKS.length - 1].cases;
 
   var VERDICTS = [
@@ -23,6 +28,8 @@
   var app = $("#app");
   var S = { pack: PACKS[0], order: [], i: 0, score: 0, streak: 0, log: [], pick: {} };
   var screen = "intro";
+  var SITE = "https://kinfotechcon-pixel.github.io/hypesift/";
+  var cardCanvas = null; // the latest share card, so the Share button can attach it
 
   function el(tag, attrs, kids) {
     var n = document.createElement(tag);
@@ -57,7 +64,7 @@
       $("#hTotal").textContent = CASES.length;
       $("#hScore").textContent = S.score;
       var d = $("#dots"); d.innerHTML = "";
-      for (var i = 0; i < CASES.length; i++) d.appendChild(el("i", { class: i < S.i ? "on" : i === S.i ? "cur" : "" }));
+      for (var i = 0; i < CASES.length; i++) d.appendChild(el("i", { class: i < S.i ? (S.log[i] && !S.log[i].vOk ? "on no" : "on") : i === S.i ? "cur" : "" }));
     }
   }
 
@@ -192,6 +199,14 @@
       el("p", { text: "Judge " + pk.cases.length + " real AI claims from this week." }),
       el("div", { class: "chips" }, VERDICTS.map(function (v) { return el("span", { class: "vchip" }, [glyph(v), document.createTextNode(v.name)]); })),
       play,
+      el("details", {}, [
+        el("summary", { text: "How it works" }),
+        el("div", { class: "in" }, [
+          el("p", { class: "note", text: "Each case is a real AI claim. Pick Signal, Hype or Fine print. Then pick the clue that decides it. Then say how sure you are." }),
+          el("p", { class: "note", text: "Scoring: 60 for the right call, 20 for the clue, and -20 to +20 for confidence. Certain and right pays most; Certain and wrong costs points." }),
+          el("p", { class: "note", text: "Keyboard: press 1, 2, 3 to pick, and Enter to lock in or go to the next case." })
+        ])
+      ]),
       el("span", { class: "meta", text: rec ? "Best on this pack: " + rec.best + " / " + pk.cases.length * 100 : pk.label + " · checked " + pk.checked })
     ]);
     var stats = el("div", { class: "tiles" }, [
@@ -238,9 +253,9 @@
     ]);
 
     var s1 = el("div", { class: "step" }, [el("span", { class: "label", text: "Your call" })]);
-    var g1 = el("div", { class: "opts three" });
+    var g1 = el("div", { class: "opts three", role: "radiogroup", "aria-label": "Your call" });
     VERDICTS.forEach(function (v) {
-      var b = el("button", { class: "opt v", type: "button", "aria-pressed": "false", "data-k": v.k }, [glyph(v), el("span", {}, [el("b", { text: v.name }), el("small", { text: v.sub })])]);
+      var b = el("button", { class: "opt v", type: "button", role: "radio", "aria-checked": "false", "data-k": v.k }, [glyph(v), el("span", {}, [el("b", { text: v.name }), el("small", { text: v.sub })])]);
       b.style.setProperty("--c", v.color);
       b.onclick = function () { choose(g1, b); S.pick.verdict = v.k; reveal(s2); };
       g1.appendChild(b);
@@ -248,18 +263,18 @@
     s1.appendChild(g1);
 
     var s2 = el("div", { class: "step", hidden: "" }, [el("span", { class: "label", text: "What decides it?" })]);
-    var g2 = el("div", { class: "opts" });
+    var g2 = el("div", { class: "opts", role: "radiogroup", "aria-label": "What decides it?" });
     c.opts.forEach(function (t, idx) {
-      var b = el("button", { class: "opt plain", type: "button", "aria-pressed": "false", text: t });
+      var b = el("button", { class: "opt plain", type: "button", role: "radio", "aria-checked": "false", text: t });
       b.onclick = function () { choose(g2, b); S.pick.ev = idx; reveal(s3); };
       g2.appendChild(b);
     });
     s2.appendChild(g2);
 
     var s3 = el("div", { class: "step", hidden: "" }, [el("span", { class: "label", text: "How sure?" })]);
-    var g3 = el("div", { class: "opts three keep" });
+    var g3 = el("div", { class: "opts three keep", role: "radiogroup", "aria-label": "How sure?" });
     CONF.forEach(function (v) {
-      var b = el("button", { class: "opt sm", type: "button", "aria-pressed": "false" }, [el("b", { text: v.name }), el("small", { text: v.sub })]);
+      var b = el("button", { class: "opt sm", type: "button", role: "radio", "aria-checked": "false" }, [el("b", { text: v.name }), el("small", { text: v.sub })]);
       b.onclick = function () { choose(g3, b); S.pick.conf = v.k; lock.disabled = false; };
       g3.appendChild(b);
     });
@@ -273,7 +288,7 @@
     UI = { g1: g1, g2: g2, g3: g3, s2: s2, s3: s3, lock: lock, next: null };
     app.appendChild(card);
   }
-  function choose(group, btn) { Array.prototype.forEach.call(group.children, function (b) { b.setAttribute("aria-pressed", b === btn ? "true" : "false"); }); }
+  function choose(group, btn) { Array.prototype.forEach.call(group.children, function (b) { b.setAttribute("aria-checked", b === btn ? "true" : "false"); }); }
   function reveal(n) { if (!n.hidden) return; n.hidden = false; try { n.scrollIntoView({ behavior: "smooth", block: "nearest" }); } catch (e) {} }
 
   function points(vOk, eOk, conf) {
@@ -292,11 +307,11 @@
     Array.prototype.forEach.call(groups[0].children, function (b) {
       var k = b.getAttribute("data-k");
       if (k === c.verdict) b.classList.add("right");
-      else if (b.getAttribute("aria-pressed") === "true") b.classList.add("wrong");
+      else if (b.getAttribute("aria-checked") === "true") b.classList.add("wrong");
     });
     Array.prototype.forEach.call(groups[1].children, function (b, idx) {
       if (idx === c.right) b.classList.add("right");
-      else if (b.getAttribute("aria-pressed") === "true") b.classList.add("wrong");
+      else if (b.getAttribute("aria-checked") === "true") b.classList.add("wrong");
     });
     lock.remove();
 
@@ -386,8 +401,11 @@
     P.days = P.days.slice(-400);
     P.packs[pk.id] = { best: Math.max(prev, total), plays: rec.plays + 1 };
     save();
+    // the board keeps only the first completed run on each pack; replays are practice
+    var practice = false;
     if (DB && UID) {
-      myDoc.scores[pk.id] = Math.max(myDoc.scores[pk.id] || 0, total);
+      if (typeof myDoc.scores[pk.id] === "number") practice = true;
+      else myDoc.scores[pk.id] = total;
       myDoc.runs = P.runs.length; myDoc.badges = Object.keys(P.badges).length;
       pushMine();
     }
@@ -404,6 +422,7 @@
       stat(eRight + "/" + n, "clues found"),
       stat(sure.length ? sureRight + "/" + sure.length : "–", "Certain, right")
     ]);
+    if (practice) top.appendChild(el("span", { class: "meta", text: "Practice run, not on the board" }));
     var blocks = [top, stats];
     if (fresh.length) blocks.push(el("div", { class: "newb" }, [el("span", { class: "label", text: "New badges" })].concat(fresh.map(function (f) { return el("span", { class: "b", text: f }); }))));
     blocks.push(el("div", { class: "list" }, S.log.map(function (l) {
@@ -417,9 +436,11 @@
     again.onclick = function () { start(pk); };
     var row = [again];
     if (DB) { var bd = el("button", { class: "btn ghost", type: "button", text: "Leaderboard" }); bd.onclick = function () { community(pk); window.scrollTo(0, 0); }; row.push(bd); }
+    var base = "Hypesift: " + total + "/" + max + " (" + rank + "). " + vRight + "/" + n + " right calls. Signal or hype?";
+    var shareText = base + " " + SITE;
     var copy = el("button", { class: "btn ghost", type: "button", text: "Copy result" });
     copy.onclick = function () {
-      var t = "Hypesift: " + total + "/" + max + " (" + rank + "). " + vRight + "/" + n + " right calls. Signal or hype?";
+      var t = shareText;
       var done = function () { copy.textContent = "Copied"; setTimeout(function () { copy.textContent = "Copy result"; }, 1800); };
       try { navigator.clipboard.writeText(t).then(done, function () { copy.textContent = t; }); } catch (e) { copy.textContent = t; }
     };
@@ -428,7 +449,27 @@
       sg.onclick = function () { submitScreen(); window.scrollTo(0, 0); };
       row.push(sg);
     }
+    if (navigator.share) {
+      var sh = el("button", { class: "btn ghost", type: "button", text: "Share" });
+      sh.onclick = function () {
+        var send = function (d) { try { navigator.share(d).catch(function () {}); } catch (e) {} };
+        var plain = { title: "Hypesift", text: base, url: SITE };
+        if (cardCanvas && navigator.canShare) {
+          cardCanvas.toBlob(function (b) {
+            try {
+              if (b) {
+                var withFile = { title: "Hypesift", text: shareText, files: [new File([b], "hypesift-" + total + ".png", { type: "image/png" })] };
+                if (navigator.canShare(withFile)) { send(withFile); return; }
+              }
+            } catch (e) {}
+            send(plain);
+          }, "image/png");
+        } else send(plain);
+      };
+      row.push(sh);
+    }
     row.push(copy);
+    cardCanvas = null;
     blocks.push(shareBlock(total, max, rank, S.log));
     blocks.push(el("div", { class: "row" }, row));
     blocks.push(el("details", {}, [el("summary", { text: "How scoring works" }), el("div", { class: "in" }, [el("p", { class: "note", text: "60 for the right call, 20 for the clue, up to ±20 for how sure you were. Certain and right pays most; Certain and wrong costs most. A badge unlocks when you get the call and the clue right on a case using that pattern." })])]));
@@ -596,7 +637,7 @@
     var box = el("section", { class: "sec" }, [el("span", { class: "label", text: "Share card" })]);
     var img = el("img", { class: "share", alt: "Result card: " + total + " of " + max + ", " + rank });
     var canvas = null;
-    var go = function () { try { canvas = drawCard(total, max, rank, log); img.src = canvas.toDataURL("image/png"); } catch (e) {} };
+    var go = function () { try { canvas = cardCanvas = drawCard(total, max, rank, log); img.src = canvas.toDataURL("image/png"); } catch (e) {} };
     try {
       if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('700 80px "Space Grotesk"'), document.fonts.load('500 40px "IBM Plex Mono"')]).then(go, go);
       else go();
