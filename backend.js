@@ -178,7 +178,20 @@
       }
     };
 
-    return { db: db, user: user, downloads: downloads() };
+    /* Call a Supabase Edge Function as the signed-in anonymous player. */
+    function fn(name, body) {
+      return ensureSession().then(function (s) {
+        return fetch(base + "/functions/v1/" + name, {
+          method: "POST",
+          headers: { apikey: anon, Authorization: "Bearer " + s.access_token, "Content-Type": "application/json" },
+          body: JSON.stringify(body || {})
+        });
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) { j = j || {}; j.status = r.status; return j; });
+      });
+    }
+
+    return { db: db, user: user, downloads: downloads(), fn: fn };
   }
 
   window.HypesiftBackend = { create: create, downloads: downloads };

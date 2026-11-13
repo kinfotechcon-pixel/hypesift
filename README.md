@@ -35,6 +35,15 @@ The game works without a backend. The leaderboard, crowd comparison and "Suggest
 
 The anon key is meant to be public. The security rules in `schema.sql` mean each player can only write their own row. **Never put the `service_role` key anywhere in this repository.**
 
+## Turning on "Check a story"
+
+1. Run `supabase/story_checks.sql` in the Supabase SQL Editor.
+2. Supabase > **Edge Functions** > **Deploy a new function** > via Editor. Name it `check-story` and paste in `supabase/functions/check-story/index.ts`. Keep **Verify JWT** on.
+3. Supabase > Edge Functions > **Secrets**: add `ANTHROPIC_API_KEY` (from console.anthropic.com). Optional: `CHECK_MODEL`, `PLAYER_DAILY_LIMIT` (default 3), `GLOBAL_DAILY_LIMIT` (default 200).
+4. Set `checkStory: true` in `config.js`, commit and push.
+
+The Anthropic key lives only in Supabase secrets. Never put it in this repository.
+
 Notes:
 - Suggestions are visible only to the player who sent them and to you in the Supabase **Table Editor** (`submissions` table).
 - Nicknames on the board are opt-in and chosen by players. You can edit or delete any row in the Table Editor if a nickname needs moderating.

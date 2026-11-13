@@ -130,7 +130,7 @@
   }
   /* Where the community features come from: the Claude runtime when the page runs as a Claude artifact,
      otherwise the Supabase backend in backend.js when config.js holds a project URL and public key. */
-  var WEB = false;
+  var WEB = false, FN = null;
   function getPlatform() {
     var c = window.claude;
     if (c && c.use) {
@@ -142,13 +142,14 @@
     var B = window.HypesiftBackend;
     if (B && cfg.supabaseUrl && cfg.supabaseAnonKey) {
       var b = B.create(cfg);
-      return Promise.resolve({ user: b.user, db: b.db, dl: b.downloads, web: true });
+      return Promise.resolve({ user: b.user, db: b.db, dl: b.downloads, fn: cfg.checkStory ? b.fn : null, web: true });
     }
     return Promise.resolve({ user: null, db: null, dl: B ? B.downloads() : null, web: true });
   }
   function initCommunity() {
     getPlatform().then(function (p) {
-      DL = p.dl || null; WEB = p.web; USER = p.user; DB = p.db;
+      DL = p.dl || null; WEB = p.web; USER = p.user; DB = p.db; FN = p.fn || null;
+      if (FN && screen === "intro") intro();
       if (!DB || !USER) { DB = null; return; }
       return USER.id().then(function (id) {
         if (!id) { DB = null; return; }
@@ -218,7 +219,9 @@
     if (DB) {
       var sg = el("button", { class: "btn ghost", type: "button", text: "Suggest a claim" });
       sg.onclick = function () { go("submit"); };
-      app.appendChild(el("div", { class: "row" }, [sg]));
+      var chkBtn = null;
+      if (FN) { chkBtn = el("button", { class: "btn", type: "button", text: "Check a story" }); chkBtn.onclick = function () { go("check"); }; }
+      app.appendChild(el("div", { class: "row" }, [chkBtn, sg]));
     }
     if (PACKS.length > 1) {
       var list = el("div", { class: "packs" });
@@ -711,6 +714,78 @@
     paintList();
   }
 
+  /* ---------- check a story: paste a link, get a sourced verdict ---------- */
+  var CHECK_NAME = { solid: "Signal", overstated: "Hype", context: "Fine print", unverified: "Can't verify" };
+  var CHECK_COLOR = { solid: "var(--signal)", overstated: "var(--hype)", context: "var(--ctx)", unverified: "var(--mute)" };
+  var CHECK_GLYPH = { solid: "✓", overstated: "!", context: "?", unverified: "–" };
+  var lastCheck = null, checkLeft = null;
+
+  function checkScreen() {
+    screen = "check"; setChrome("check"); app.innerHTML = "";
+    var back = el("button", { class: "btn ghost", type: "button", text: "Back" });
+    back.onclick = goBack;
+    app.appendChild(el("section", { class: "hero" }, [
+      el("h1", { class: "rank", text: "Check a story" }),
+      el("p", { text: "Found an AI story online? Paste the link and I'll look for the original source." }),
+      el("div", { class: "row" }, [back])
+    ]));
+    if (!FN) { app.appendChild(el("p", { class: "note", text: "Story checking isn't available here." })); return; }
+
+    var link = el("input", { id: "chkUrl", type: "url", maxlength: "500", placeholder: "https://", autocomplete: "off" });
+    var text = el("textarea", { id: "chkText", maxlength: "4000", rows: "4", placeholder: "Optional: paste the text of the post. Needed for Facebook, LinkedIn, X and Instagram, which often hide posts." });
+    var msg = el("p", { class: "msg", "aria-live": "polite" });
+    var go1 = el("button", { class: "btn block", type: "button", text: "Check it" });
+    var out = el("div", { class: "chkout" });
+    var left = el("p", { class: "meta" });
+    function paintLeft() { left.textContent = checkLeft === null ? "" : checkLeft + (checkLeft === 1 ? " free check" : " free checks") + " left today. Repeat checks of the same story are free."; }
+
+    go1.onclick = function () {
+      var u = (link.value || "").trim(), t = (text.value || "").trim();
+      if (!u && t.length < 20) { msg.className = "msg no"; msg.textContent = "Paste a link, or at least a sentence of the post."; return; }
+      if (u && !safeUrl(u)) { msg.className = "msg no"; msg.textContent = "The link should start with http."; return; }
+      go1.disabled = true; msg.className = "msg"; msg.textContent = "Checking the source. This can take up to a minute…"; out.innerHTML = "";
+      FN("check-story", { url: u, text: t }).then(function (r) {
+        go1.disabled = false;
+        if (typeof r.left === "number") { checkLeft = r.left; paintLeft(); }
+        if (r.result) { lastCheck = r.result; msg.textContent = ""; paintCheck(out, r.result, r.cached); return; }
+        msg.className = "msg no"; msg.textContent = r.message || "That check didn't work. Please try again.";
+      }, function () { go1.disabled = false; msg.className = "msg no"; msg.textContent = "Couldn't reach the checker. Check your connection and try again."; });
+    };
+    app.appendChild(el("section", { class: "card" }, [field("chkUrl", "Link", link), field("chkText", "Post text (optional)", text), msg, go1, left]));
+    app.appendChild(out);
+    paintLeft();
+    if (lastCheck) paintCheck(out, lastCheck, false);
+    app.appendChild(el("p", { class: "note", text: "An AI reads the page and searches the web, so it can be wrong. Open the sources to judge for yourself." }));
+  }
+
+  function paintCheck(box, r, cached) {
+    box.innerHTML = "";
+    var v = CHECK_NAME[r.verdict] ? r.verdict : "unverified";
+    var head = el("div", { class: "vchip" }, [el("span", { class: "g", text: CHECK_GLYPH[v] }), document.createTextNode(CHECK_NAME[v])]);
+    head.firstChild.style.background = CHECK_COLOR[v];
+    var kids = [head, el("p", { class: "claim", text: r.headline || "" })];
+    if (r.claim) kids.push(el("small", { class: "meta", text: "Claim checked: " + r.claim }));
+    var ul = el("ul", { class: "why" });
+    (r.reasons || []).forEach(function (x) { ul.appendChild(el("li", { text: x })); });
+    if (ul.children.length) kids.push(ul);
+    if (r.missing) kids.push(el("p", { class: "note", text: "Missing context: " + r.missing }));
+    var srcs = (r.sources || []).filter(function (s) { return safeUrl(s.url); });
+    if (srcs.length) {
+      var sl = el("div", { class: "srcs" }, [el("span", { class: "label", text: "Sources" })]);
+      srcs.forEach(function (s) { var a = el("a", { href: s.url, target: "_blank", rel: "noopener noreferrer nofollow", text: s.title || s.url }); sl.appendChild(a); });
+      kids.push(sl);
+    }
+    kids.push(el("small", { class: "meta", text: "Confidence: " + (r.confidence || "low") + (cached ? " · checked recently" : "") }));
+    var copy = el("button", { class: "btn ghost", type: "button", text: "Copy result" });
+    copy.onclick = function () {
+      var t = "Hypesift check: " + CHECK_NAME[v] + ". " + (r.headline || "") + " " + SITE;
+      var done = function () { copy.textContent = "Copied"; setTimeout(function () { copy.textContent = "Copy result"; }, 1800); };
+      try { navigator.clipboard.writeText(t).then(done, function () { copy.textContent = "Copy failed"; }); } catch (e) { copy.textContent = "Copy failed"; }
+    };
+    kids.push(el("div", { class: "row" }, [copy]));
+    box.appendChild(el("section", { class: "card" }, kids));
+  }
+
   /* ---------- owner inbox (editors only) ---------- */
   function inbox() {
     screen = "inbox"; setChrome("inbox"); app.innerHTML = "";
@@ -805,6 +880,7 @@
     else if (name === "profile") profile();
     else if (name === "submit") submitScreen();
     else if (name === "inbox") inbox();
+    else if (name === "check") checkScreen();
     else intro();
     window.scrollTo(0, 0);
   }

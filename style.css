@@ -196,6 +196,11 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .field label { font: 500 11px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--mute); }
 .field input, .field textarea { width: 100%; background: var(--panel-2); color: var(--fg); border: 1.5px solid var(--line); border-radius: 12px; padding: 13px 14px; font: 400 16px/1.4 var(--body); resize: vertical; }
 .field input:focus, .field textarea:focus { outline: none; border-color: var(--signal); }
+.chkout { display: flex; flex-direction: column; gap: 12px; }
+.chkout .card, .chkout .card > * { min-width: 0; overflow-wrap: anywhere; }
+.why { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; line-height: 1.45; }
+.srcs { display: flex; flex-direction: column; gap: 6px; }
+.srcs a { font-size: 14px; }
 .msg { margin: 0; font-size: 14.5px; min-height: 1.4em; }
 .msg.ok { color: var(--signal); }
 .msg.no { color: var(--hype); }
