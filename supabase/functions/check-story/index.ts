@@ -43,12 +43,15 @@ async function countSince(filter: string): Promise<number> {
   return parseInt(cr.split("/")[1] || "0", 10) || 0;
 }
 
-/* ---------- who is asking (the gateway has already verified the token's signature) ---------- */
-function userIdFrom(req: Request): string | null {
+/* ---------- who is asking: ask Supabase Auth to validate the player's session token ---------- */
+async function userIdFrom(req: Request): Promise<string | null> {
   try {
-    const tok = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-    const p = JSON.parse(atob(tok.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-    return typeof p.sub === "string" && /^[0-9a-f-]{36}$/i.test(p.sub) && p.role === "authenticated" ? p.sub : null;
+    const auth = req.headers.get("authorization") || "";
+    if (!/^Bearer\s+\S+$/i.test(auth)) return null;
+    const r = await fetch(`${SB_URL}/auth/v1/user`, { headers: { apikey: SB_KEY, Authorization: auth } });
+    if (!r.ok) return null;
+    const u = await r.json();
+    return typeof u?.id === "string" && /^[0-9a-f-]{36}$/i.test(u.id) ? u.id : null;
   } catch { return null; }
 }
 
@@ -168,7 +171,7 @@ async function sha(s: string) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return reply({ error: "method" }, 405);
-  const uid = userIdFrom(req);
+  const uid = await userIdFrom(req);
   if (!uid) return reply({ error: "signin", message: "Please reload the page and try again." }, 401);
 
   let body: { url?: string; text?: string };
