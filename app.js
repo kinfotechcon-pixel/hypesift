@@ -225,7 +225,10 @@
       PACKS.slice(0, -1).reverse().forEach(function (p2) {
         var r2 = P.packs[p2.id], b = el("button", { class: "btn ghost", type: "button", text: "Play" });
         b.onclick = function () { start(p2); };
-        list.appendChild(el("div", { class: "pack" }, [el("div", {}, [el("b", { text: p2.label }), el("small", { text: r2 ? "Best " + r2.best + " / " + p2.cases.length * 100 : "Not played" })]), b]));
+        var row2 = el("div", { class: "pack", style: "cursor:pointer" }, [el("div", {}, [el("b", { text: p2.label }), el("small", { text: r2 ? "Best " + r2.best + " / " + p2.cases.length * 100 : "Not played" })]), b]);
+        row2.onclick = function () { start(p2); };
+        b.onclick = function (e) { e.stopPropagation(); start(p2); };
+        list.appendChild(row2);
       });
       app.appendChild(el("section", { class: "sec" }, [el("span", { class: "label", text: "Archive" }), list]));
     }
