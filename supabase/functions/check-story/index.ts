@@ -130,7 +130,7 @@ Return ONLY a JSON object, no markdown, in exactly this shape:
 type Result = { claim: string; verdict: string; headline: string; reasons: string[]; missing: string; sources: { title: string; url: string }[]; confidence: string };
 
 async function runCheck(material: string, sourceUrl: string): Promise<Result> {
-  const key = Deno.env.get("ANTHROPIC_API_KEY");
+  const key = (Deno.env.get("ANTHROPIC_API_KEY") || "").trim();
   if (!key) throw new Error("not_configured");
   const userMsg = `Today is ${new Date().toISOString().slice(0, 10)}.\n${sourceUrl ? `The reader found this at: ${sourceUrl}\n` : ""}<reader_material>\n${material}\n</reader_material>\nCheck the main AI claim in the material and return the JSON.`;
   const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -144,7 +144,10 @@ async function runCheck(material: string, sourceUrl: string): Promise<Result> {
       messages: [{ role: "user", content: userMsg }],
     }),
   });
-  if (!r.ok) throw new Error(`anthropic_${r.status}`);
+  if (!r.ok) {
+    const detail = (await r.text().catch(() => "")).slice(0, 160).replace(/\s+/g, " ");
+    throw new Error(`anthropic_${r.status} ${detail}`);
+  }
   const j = await r.json();
   const text = (j.content || []).filter((b: { type: string }) => b.type === "text").map((b: { text: string }) => b.text).join("\n");
   const a = text.indexOf("{"), b = text.lastIndexOf("}");
@@ -215,6 +218,7 @@ Deno.serve(async (req) => {
   } catch (e) {
     const m = String((e as Error)?.message || e);
     if (m === "not_configured") return reply({ error: "setup", message: "Story checking isn't switched on yet." }, 503);
-    return reply({ error: "failed", message: "That check didn't work. It didn't use up one of your checks. Please try again." }, 502);
+    console.error("check-story failed:", m);
+    return reply({ error: "failed", code: m.slice(0, 40), message: "That check didn't work. It didn't use up one of your checks. Please try again." }, 502);
   }
 });
