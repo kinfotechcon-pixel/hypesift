@@ -55,6 +55,7 @@
     var playing = mode === "play";
     $("#hud").hidden = !playing;
     $("#dots").hidden = !playing;
+    $("#navBack").hidden = !playing;
     $("#navProfile").hidden = playing;
     $("#navComm").hidden = playing || !DB;
     $("#navInbox").hidden = playing || !(DB && ADMIN);
@@ -755,7 +756,7 @@
     app.appendChild(out);
     paintLeft();
     if (lastCheck) paintCheck(out, lastCheck, false);
-    app.appendChild(el("p", { class: "note", text: "An AI reads the page and searches the web, so it can be wrong. Open the sources to judge for yourself." }));
+    app.appendChild(el("p", { class: "note", text: "Hypesift AI reads the page and searches the web, so it can be wrong. Open the sources to judge for yourself." }));
   }
 
   function paintCheck(box, r, cached) {
@@ -894,6 +895,7 @@
   window.addEventListener("popstate", function (e) { route(e.state && e.state.s ? e.state.s : "intro"); });
 
   $("#home").onclick = function (e) { e.preventDefault(); go("intro"); };
+  $("#navBack").onclick = goBack;
   $("#navProfile").onclick = function () { go("profile"); };
   $("#navComm").onclick = function () { go("community"); };
   $("#navInbox").onclick = function () { go("inbox"); };
