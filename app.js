@@ -30,6 +30,20 @@
   var S = { pack: PACKS[0], order: [], i: 0, score: 0, streak: 0, log: [], pick: {} };
   var screen = "intro";
   var SITE = "https://kinfotechcon-pixel.github.io/hypesift/";
+
+  /* A friend's challenge link looks like ?ch=w.w-basics.640 (game, pack id, score). Only a known pack id and a number are ever read from it. */
+  var CHAL = null, chalRun = null;
+  (function () {
+    try {
+      var m = /[?&]ch=([nw])\.([a-z0-9-]{1,40})\.(\d{1,4})(?:&|$)/i.exec(location.search || "");
+      if (!m) return;
+      var g = m[1].toLowerCase(), list = g === "w" ? WPACKS : PACKS, pk = null;
+      list.forEach(function (p) { if (p.id === m[2]) pk = p; });
+      var size = pk ? (pk.words || pk.cases).length * 100 : 0, sc = parseInt(m[3], 10);
+      if (pk && sc >= 0 && sc <= size) CHAL = { g: g, pack: pk, score: sc };
+    } catch (e) {}
+  })();
+  function chalUrl(g, packId, score) { return SITE + "?ch=" + g + "." + packId + "." + score; }
   var cardCanvas = null; // the latest share card, so the Share button can attach it
 
   function el(tag, attrs, kids) {
@@ -74,7 +88,7 @@
 
   /* ---------- progress saved on this device ---------- */
   var KEY = "hypesift-v2";
-  function blank() { return { runs: [], badges: {}, conf: [[0, 0], [0, 0], [0, 0]], days: [], packs: {}, words: { packs: {}, learned: {}, daily: "" } }; }
+  function blank() { return { runs: [], badges: {}, conf: [[0, 0], [0, 0], [0, 0]], days: [], packs: {}, words: { packs: {}, learned: {}, daily: "" }, polled: "" }; }
   function load() {
     var d = blank();
     try {
@@ -110,6 +124,7 @@
   /* ---------- community (shared db; every call tolerates absence) ---------- */
   var DB = null, USER = null, UID = null, players = {}, dbState = "off", canWrite = true, loaded = false, pending = false, wq = Promise.resolve();
   var ADMIN = false, mySubs = [], allSubs = [], DL = null, UI = null, sq = Promise.resolve();
+  var subsLoaded = false, myPoll = null; // the private submissions document also holds this player's one poll answer
   var myDoc = { pub: false, display: "", cases: {}, scores: {}, runs: 0, badges: 0 };
 
   function pushMine() {
@@ -170,6 +185,7 @@
         DB.doc("submissions/" + UID).onSnapshot(function (d) {
           var x = d.exists ? d.data() : null;
           mySubs = x && Array.isArray(x.items) ? x.items : [];
+          myPoll = x && x.poll ? x.poll : null; subsLoaded = true;
           if (screen === "submit") submitScreen();
         }, function () {});
         if (ADMIN) {
@@ -220,6 +236,7 @@
     ["How long does it take?", "A word takes about 30 seconds, and a set of 8 takes about five minutes. There is a new word of the day every day and a new set of claims every week. Older sets stay available."],
     ["What is AIVoCab?", "The word game. You see an AI word like \"hallucination\", pick what it means, then pick the sentence that uses it correctly. After each word you see the meaning in plain language and where you will run into it."],
     ["What is Check a story?", "Paste a link to an AI story you found online. Hypesift AI reads it, searches the web for the original source and gives a verdict with reasons. It can be wrong, so open the sources and judge for yourself."],
+    ["Can I challenge a friend?", "Yes. After a run, tap Challenge a friend to copy a link with your score. Your friend opens it, plays the same pack and sees whether they beat you. The link holds only the pack and your score, never your name."],
     ["Is it free? What do you keep about me?", "It is free to play. There is no account and no email. Your progress stays on your device. If you open the Board, your score is stored under a random ID, and a nickname shows only if you choose one."]
   ];
 
@@ -263,6 +280,7 @@
       el("span", { class: "meta", text: "New words and claims every week" })
     ]));
 
+    var chal = chalCard(); if (chal) app.appendChild(chal);
     var daily = dailyCard(); if (daily) app.appendChild(daily);
 
     var cards = el("div", { class: "games" });
@@ -545,7 +563,8 @@
     var row = [again];
     if (DB) { var bd = el("button", { class: "btn ghost", type: "button", text: "Leaderboard" }); bd.onclick = function () { commPack = pk; go("community"); }; row.push(bd); }
     var base = "Hypesift: " + total + "/" + max + " (" + rank + "). " + vRight + "/" + n + " right calls. Signal or hype?";
-    var shareText = base + " " + SITE;
+    var shareText = base + " Can you beat it? " + chalUrl("n", pk.id, total);
+    var cl = chalLine(pk, total); if (cl) top.appendChild(cl);
     var copy = el("button", { class: "btn ghost", type: "button", text: "Copy result" });
     copy.onclick = function () {
       var t = shareText;
@@ -576,10 +595,12 @@
       };
       row.push(sh);
     }
+    row.push(challengeBtn("n", pk, total, "Signal or hype?"));
     row.push(copy);
     cardCanvas = null;
     blocks.push(shareBlock(total, max, rank, S.log));
     blocks.push(el("div", { class: "row" }, row));
+    var poll1 = pollCard(); if (poll1) blocks.push(poll1);
     blocks.push(el("details", {}, [el("summary", { text: "How scoring works" }), el("div", { class: "in" }, [el("p", { class: "note", text: "60 for the right call, 20 for the clue, up to ±20 for how sure you were. Certain and right pays most; Certain and wrong costs most. A badge unlocks when you get the call and the clue right on a case using that pattern." })])]));
     blocks.forEach(function (x) { app.appendChild(x); });
 
@@ -592,6 +613,57 @@
         num.textContent = "0"; requestAnimationFrame(step);
       }
     } catch (e) {}
+  }
+
+  /* ---------- growth: friend challenges and the one-question poll ---------- */
+  function playPack(g, pk) { if (g === "w") wordStart(pk); else start(pk); }
+  function chalCard() {
+    if (!CHAL) return null;
+    var max = (CHAL.pack.words || CHAL.pack.cases).length * 100;
+    var go1 = el("button", { class: "btn", type: "button", text: "Take the challenge" });
+    go1.onclick = function () { chalRun = { id: CHAL.pack.id, score: CHAL.score }; playPack(CHAL.g, CHAL.pack); };
+    var no = el("button", { class: "btn ghost", type: "button", text: "Not now" });
+    no.onclick = function () { CHAL = null; intro(); };
+    return el("section", { class: "card daily" }, [
+      el("span", { class: "label", text: "A friend challenged you" }),
+      el("p", { class: "claim", text: "They scored " + CHAL.score + " / " + max + " on " + CHAL.pack.label + ". Can you beat it?" }),
+      el("div", { class: "row" }, [go1, no])
+    ]);
+  }
+  function chalLine(pk, total) {
+    if (!chalRun || chalRun.id !== pk.id) return null;
+    var d = total - chalRun.score;
+    return el("span", { class: "meta", text: d > 0 ? "You beat your friend's " + chalRun.score + " by " + d + "!" : d === 0 ? "You tied your friend's " + chalRun.score + "." : "Your friend's " + chalRun.score + " is " + (-d) + " ahead. Play again to catch up." });
+  }
+  function challengeBtn(g, pk, total, name) {
+    var b = el("button", { class: "btn ghost", type: "button", text: "Challenge a friend" });
+    b.onclick = function () {
+      var text = "I scored " + total + " / " + (pk.cases || pk.words).length * 100 + " on " + pk.label + " in " + name + ". Think you can beat me? " + chalUrl(g, pk.id, total);
+      try { navigator.clipboard.writeText(text).then(function () { toast("Challenge link copied"); }, function () { b.textContent = text; }); } catch (e) { b.textContent = text; }
+    };
+    return b;
+  }
+
+  var POLL = ["A new AI word every day", "New AI claims every week", "Challenging my friends", "Streaks and badges", "Something else"];
+  function pollCard() {
+    if (!DB || !UID || !canWrite || !subsLoaded || P.polled || myPoll) return null;
+    var card = el("section", { class: "card" }, [el("span", { class: "label", text: "One quick question" }), el("b", { class: "ask", text: "What would bring you back to Hypesift?" })]);
+    var g = el("div", { class: "opts", role: "radiogroup", "aria-label": "What would bring you back to Hypesift?" });
+    POLL.forEach(function (t, i) {
+      var b = el("button", { class: "opt plain", type: "button", role: "radio", "aria-checked": "false", text: t });
+      b.onclick = function () {
+        choose(g, b);
+        P.polled = t; save();
+        myPoll = { a: i, t: Date.now() };
+        var items = mySubs.slice(), poll = myPoll;
+        sq = sq.then(function () { return DB.doc("submissions/" + UID).set({ items: items, poll: poll }); }).catch(function () {});
+        card.innerHTML = "";
+        card.appendChild(el("b", { class: "ask", text: "Thanks. That helps decide what to build next." }));
+      };
+      g.appendChild(b);
+    });
+    card.appendChild(g);
+    return card;
   }
 
   /* ---------- AIVoCab: the AI word game ---------- */
@@ -774,7 +846,8 @@
     row.push(morePacks);
     if (DB) { var bd = el("button", { class: "btn ghost", type: "button", text: "Leaderboard" }); bd.onclick = function () { commPack = pk; go("community"); }; row.push(bd); }
     var base = "AIVoCab: " + total + "/" + max + " (" + rank + "). " + mRight + "/" + n + " AI words right. How many do you know?";
-    var shareText = base + " " + SITE;
+    var shareText = base + " Can you beat it? " + chalUrl("w", pk.id, total);
+    var cl = chalLine(pk, total); if (cl) top.appendChild(cl);
     var copy = el("button", { class: "btn ghost", type: "button", text: "Copy result" });
     copy.onclick = function () {
       var done = function () { copy.textContent = "Copied"; setTimeout(function () { copy.textContent = "Copy result"; }, 1800); };
@@ -799,10 +872,12 @@
       };
       row.push(sh);
     }
+    row.push(challengeBtn("w", pk, total, "AIVoCab"));
     row.push(copy);
     cardCanvas = null;
     blocks.push(shareBlock(total, max, rank, S.log, "words"));
     blocks.push(el("div", { class: "row" }, row));
+    var poll2 = pollCard(); if (poll2) blocks.push(poll2);
     blocks.push(el("details", {}, [el("summary", { text: "How scoring works" }), el("div", { class: "in" }, [el("p", { class: "note", text: "60 points for the right meaning and 40 for picking the sentence that uses the word correctly, so up to 100 per word. A word counts as learned once you get its meaning right." })])]));
     blocks.forEach(function (x) { app.appendChild(x); });
     countUp(num, total);
@@ -969,12 +1044,20 @@
   function rr(x, px, py, w, h, r) {
     x.beginPath(); x.moveTo(px + r, py); x.arcTo(px + w, py, px + w, py + h, r); x.arcTo(px + w, py + h, px, py + h, r); x.arcTo(px, py + h, px, py, r); x.arcTo(px, py, px + w, py, r); x.closePath();
   }
-  function drawCard(total, max, rank, log, mode) {
-    var W = 1080, H = 1080, c = document.createElement("canvas");
+  function drawCard(total, max, rank, log, mode, tall) {
+    var W = 1080, H = tall ? 1920 : 1080, c = document.createElement("canvas");
     c.width = W; c.height = H;
     var x = c.getContext("2d"), D = '"Young Serif", Georgia, serif', B = '"Hanken Grotesk", "Helvetica Neue", Arial, sans-serif';
     var PLUM = "#3a1f3d", TEAL = "#1f9d8f", TEAL_INK = "#0e6f64", CORAL = "#ff6f59", CORAL_INK = "#c23a24", SUN = "#ffbe0b", MUTE = "#7a5a78";
     x.fillStyle = "#fff1e2"; x.fillRect(0, 0, W, H);
+    if (tall) {
+      // Stories size: the square layout sits in the middle, with extra colour above and below
+      x.fillStyle = SUN; x.beginPath(); x.arc(W - 120, 140, 300, 0, Math.PI * 2); x.fill();
+      x.fillStyle = TEAL; x.beginPath(); x.arc(150, 250, 74, 0, Math.PI * 2); x.fill();
+      x.fillStyle = CORAL; x.beginPath(); x.arc(160, H - 60, 260, 0, Math.PI * 2); x.fill();
+      x.fillStyle = SUN; x.beginPath(); x.arc(W - 40, H - 120, 150, 0, Math.PI * 2); x.fill();
+      x.translate(0, (H - 1080) / 2);
+    }
 
     // sunrise shapes, top right
     x.fillStyle = SUN; x.beginPath(); x.arc(W - 40, 20, 190, 0, Math.PI * 2); x.fill();
@@ -1034,7 +1117,16 @@
           DL.save({ filename: "hypesift-" + total + ".png", data: b }).then(function () { toast("Saved"); }).catch(function (e) { if (!e || e.code !== "declined") toast("Couldn't save the image"); });
         }, "image/png");
       };
-      box.appendChild(el("div", { class: "row" }, [sv]));
+      var st = el("button", { class: "btn ghost", type: "button", text: "Save for Stories" });
+      st.onclick = function () {
+        try {
+          drawCard(total, max, rank, log, mode, true).toBlob(function (b) {
+            if (!b) return;
+            DL.save({ filename: "hypesift-story-" + total + ".png", data: b }).then(function () { toast("Saved"); }).catch(function (e) { if (!e || e.code !== "declined") toast("Couldn't save the image"); });
+          }, "image/png");
+        } catch (e) { toast("Couldn't save the image"); }
+      };
+      box.appendChild(el("div", { class: "row" }, [sv, st]));
     }
     return box;
   }
@@ -1067,7 +1159,7 @@
       send.disabled = true; msg.className = "msg"; msg.textContent = "Sending…";
       var item = { id: "s" + Date.now().toString(36), claim: c, url: u, note: n, t: Date.now() };
       var items = mySubs.concat([item]).slice(-5);
-      sq = sq.then(function () { return DB.doc("submissions/" + UID).set({ items: items }); }).then(function () {
+      sq = sq.then(function () { return DB.doc("submissions/" + UID).set({ items: items, poll: myPoll }); }).then(function () {
         mySubs = items; msg.className = "msg ok"; msg.textContent = "Sent. Thank you.";
         claim.value = ""; link.value = ""; note.value = "";
         send.disabled = items.length >= 5; send.textContent = items.length >= 5 ? "5 of 5 sent" : "Send for review";
