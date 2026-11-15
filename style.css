@@ -55,6 +55,9 @@ a { color: var(--signal-ink); font-weight: 600; }
 .navs { display: flex; gap: 4px; align-items: center; }
 .nav { background: transparent; border: 0; border-radius: 999px; padding: 10px 14px; font: 800 15px/1 var(--body); color: var(--fg); }
 .nav:hover { background: var(--butter); }
+.nav.on { background: var(--fg); color: #fff6ea; }
+.card.daily { background: var(--butter); }
+.card.daily .chip { background: #fff; }
 .hud { display: flex; gap: 12px; font: 600 14px/1 var(--body); color: var(--mute); }
 .hud strong { color: var(--fg); font-weight: 800; }
 .dots { display: flex; gap: 5px; }

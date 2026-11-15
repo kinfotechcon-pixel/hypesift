@@ -17,6 +17,11 @@ The site is plain static files served by GitHub Pages from the `main` branch. **
 | `supabase/schema.sql` | Database tables and security rules |
 | `scripts/validate-packs.js` | Checks `packs.js` before it is committed |
 
+## The two games
+
+- **Signal or hype?** Real AI claims, judged against their sources. Content lives in `packs.js`.
+- **AIVoCab** The AI word game. Content lives in `words.js`. Add a weekly pack by appending one object to `WORD_PACKS` (8 words, `track: "weekly"`), then run `node scripts/validate-words.js`.
+
 ## Adding a weekly pack
 
 1. In `packs.js`, add a `PACK_W` array of 8 cases (copy an existing one), add it to `PACKS`, and add any new pattern name to `TIPS`.

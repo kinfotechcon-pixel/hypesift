@@ -3,6 +3,7 @@
 
   var D = window.HYPESIFT_DATA || { checked: "", packs: [], tips: {} };
   var CHECKED = D.checked, PACKS = D.packs, TIPS = D.tips;
+  var WD = window.HYPESIFT_WORDS || { checked: "", packs: [] }, WPACKS = WD.packs;
   if (!Array.isArray(PACKS) || !PACKS.length) {
     var box = document.querySelector("#app");
     if (box) box.textContent = "Cases didn't load. Refresh to try again.";
@@ -62,6 +63,7 @@
     $("#navInbox").hidden = playing || !(DB && ADMIN);
     if (!playing) UI = null;
     if (playing) {
+      $("#hLabel").textContent = screen === "wplay" ? "Word" : "Case";
       $("#hCase").textContent = Math.min(S.i + 1, CASES.length);
       $("#hTotal").textContent = CASES.length;
       $("#hScore").textContent = S.score;
@@ -72,7 +74,7 @@
 
   /* ---------- progress saved on this device ---------- */
   var KEY = "hypesift-v2";
-  function blank() { return { runs: [], badges: {}, conf: [[0, 0], [0, 0], [0, 0]], days: [], packs: {} }; }
+  function blank() { return { runs: [], badges: {}, conf: [[0, 0], [0, 0], [0, 0]], days: [], packs: {}, words: { packs: {}, learned: {}, daily: "" } }; }
   function load() {
     var d = blank();
     try {
@@ -84,6 +86,8 @@
     return d;
   }
   var P = load();
+  if (!P.words || typeof P.words !== "object") P.words = { packs: {}, learned: {}, daily: "" };
+  P.words.packs = P.words.packs || {}; P.words.learned = P.words.learned || {}; P.words.daily = P.words.daily || "";
   function save() { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} }
   function dayStr(d) { var m = d.getMonth() + 1, x = d.getDate(); return d.getFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (x < 10 ? "0" : "") + x; }
   function dayStreak() {
@@ -199,23 +203,29 @@
     ["Say how sure you are", "Guess, Likely or Certain. Sure and right earns the most. Sure and wrong costs points."],
     ["See the facts", "You get the verdict, the reason, the source link and a rule of thumb for next time."]
   ];
+  var WSTEPS = [
+    ["See the word", "One AI word at a time, with a plain-English guide to saying it."],
+    ["Pick the meaning", "Choose what it means from three options. The wrong ones sound believable."],
+    ["Pick the sentence", "Then choose the sentence that uses the word correctly."],
+    ["Learn it", "See the meaning in plain words, where you will meet the word, and what it is easy to confuse with."]
+  ];
   var MEANS = {
     solid: "The claim holds up against a solid source.",
     overstated: "The claim stretches or exaggerates what the source says.",
     context: "It is true, but important context is missing."
   };
   var FAQ = [
-    ["Do I need to know about AI?", "No. Every claim is written in plain words, and the answer screen explains the facts. You pick up the jargon as you go."],
-    ["Who picks the claims?", "Each week's 8 claims come from recent AI news. They are researched with AI help and checked against the original source: a company post, a study, a filing or a major report. Every claim links to its source, so you can check it yourself. If you spot a mistake, use Suggest a claim to tell us."],
-    ["How long does it take?", "About five minutes for a set of 8. A new set arrives every week, and older weeks stay in the archive."],
+    ["Do I need to know about AI?", "No. Words and claims are written in plain language, and every answer screen explains the facts. You pick up the jargon as you go."],
+    ["Who picks the words and claims?", "Each week's 8 claims come from recent AI news. They are researched with AI help and checked against the original source: a company post, a study, a filing or a major report. Word meanings are written in plain language and checked against reliable glossaries from Google, Anthropic, IBM and others. Every claim and word links to its source, so you can check it yourself. If you spot a mistake, use Suggest a claim to tell us."],
+    ["How long does it take?", "A word takes about 30 seconds, and a set of 8 takes about five minutes. There is a new word of the day every day and a new set of claims every week. Older sets stay available."],
+    ["What is AIVoCab?", "The word game. You see an AI word like \"hallucination\", pick what it means, then pick the sentence that uses it correctly. After each word you see the meaning in plain language and where you will run into it."],
     ["What is Check a story?", "Paste a link to an AI story you found online. Hypesift AI reads it, searches the web for the original source and gives a verdict with reasons. It can be wrong, so open the sources and judge for yourself."],
-    ["What is AIVoCab?", "A word game we are building. You will see an AI word like \"hallucination\", guess what it means, and learn it in plain language. Coming soon."],
     ["Is it free? What do you keep about me?", "It is free to play. There is no account and no email. Your progress stays on your device. If you open the Board, your score is stored under a random ID, and a nickname shows only if you choose one."]
   ];
 
-  function stepsBlock() {
+  function stepsBlock(steps) {
     var box = el("div", { class: "how-steps" });
-    STEPS.forEach(function (s, i) {
+    steps.forEach(function (s, i) {
       box.appendChild(el("div", { class: "how-step" }, [el("span", { class: "n", text: String(i + 1) }), el("b", { text: s[0] }), el("p", { text: s[1] })]));
     });
     return box;
@@ -237,34 +247,49 @@
   function intro() {
     screen = "intro"; setChrome("intro"); app.innerHTML = "";
     var pk = PACKS[PACKS.length - 1], rec = P.packs[pk.id], earned = Object.keys(P.badges).length;
-    var play = el("button", { class: "btn", type: "button", text: rec ? "Play this week again" : "Play this week's " + pk.cases.length + " claims" });
-    play.onclick = function () { start(pk); };
+    var learned = Object.keys(P.words.learned).length, wtotal = allWords().length;
+    var hasWords = WPACKS.length > 0;
+
+    var heroBtns = [];
+    if (hasWords) { var wb = el("button", { class: "btn", type: "button", text: "Play AIVoCab" }); wb.onclick = function () { go("words"); }; heroBtns.push(wb); }
+    else { var nb = el("button", { class: "btn", type: "button", text: "Play this week's " + pk.cases.length + " claims" }); nb.onclick = function () { start(pk); }; heroBtns.push(nb); }
     var how = el("button", { class: "btn ghost", type: "button", text: "How it works" });
     how.onclick = function () { go("how"); };
-    var hero = el("section", { class: "hero home" }, [
-      el("h1", { html: 'Spot the <span class="h">hype</span> in AI news.' }),
-      el("p", { text: "Hypesift is a quick game for anyone curious about AI. Read a real headline, decide if it holds up, then see what the source really says. No tech background needed." }),
-      el("div", { class: "row" }, [play, how]),
-      el("span", { class: "meta", text: (rec ? "Your best: " + rec.best + " / " + pk.cases.length * 100 + " · " : "") + pk.label + " · about 5 minutes · checked " + pk.checked })
-    ]);
-    app.appendChild(hero);
-    if (P.runs.length) {
+    heroBtns.push(how);
+    app.appendChild(el("section", { class: "hero home" }, [
+      el("h1", { html: 'Learn <span class="h">AI</span>, one small game at a time.' }),
+      el("p", { text: "Hypesift is a pair of quick games for anyone curious about AI. Learn the words people keep using, or check whether an AI headline holds up. Five minutes is plenty. No tech background needed." }),
+      el("div", { class: "row" }, heroBtns),
+      el("span", { class: "meta", text: "New words and claims every week" })
+    ]));
+
+    var daily = dailyCard(); if (daily) app.appendChild(daily);
+
+    var cards = el("div", { class: "games" });
+    if (hasWords) cards.appendChild(gameCard("AIVoCab", "Guess what AI words mean, then spot the sentence that uses each one correctly. " + wtotal + " words to start, with more every week.", "Play AIVoCab", function () { go("words"); }, "a", "Word game"));
+    cards.appendChild(gameCard("Signal or hype?", "Real AI headlines, each checked against its source. Call it Signal, Hype or Fine print. 8 new claims every week.", rec ? "Play this week again" : "Play this week's " + pk.cases.length + " claims", function () { start(pk); }, "b", "News game"));
+    app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "Pick a game" }), cards]));
+
+    if (P.runs.length || learned || P.days.length) {
       app.appendChild(el("div", { class: "tiles" }, [
         stat(String(dayStreak()), "day streak"),
-        stat(String(P.runs.length), "runs"),
+        stat(learned + "/" + wtotal, "words learned"),
         stat(earned + "/" + allPatterns().length, "badges")
       ]));
     }
 
     var more = el("button", { class: "btn ghost", type: "button", text: "Read the full guide" });
     more.onclick = function () { go("how"); };
-    app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "How it works" }), stepsBlock(), verdictGuide(), el("div", { class: "row" }, [more])]));
+    var two = el("div", { class: "how-steps" }, [
+      el("div", { class: "how-step" }, [el("b", { text: "AIVoCab" }), el("p", { text: "See an AI word. Pick what it means, then pick the sentence that uses it correctly. Learn it in plain words." })]),
+      el("div", { class: "how-step" }, [el("b", { text: "Signal or hype?" }), el("p", { text: "Read a real AI headline. Pick Signal, Hype or Fine print, choose the clue that decides it, then see what the source says." })])
+    ]);
+    app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "How it works" }), two, verdictGuide(), el("div", { class: "row" }, [more])]));
 
-    var cards = el("div", { class: "games" });
-    if (FN) cards.appendChild(gameCard("Check a story", "Found an AI story online? Paste the link and Hypesift AI looks for the original source.", "Check a story", function () { go("check"); }, "a"));
-    cards.appendChild(gameCard("AIVoCab", "Learn one AI word at a time. Guess what it means, then see it used in a sentence.", "Coming soon", null, "b", "New word game"));
-    if (DB) cards.appendChild(gameCard("Suggest a claim", "Spotted an AI headline that needs checking? Send it in. We verify it before it joins a pack.", "Suggest a claim", function () { go("submit"); }, "c"));
-    app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "More to try" }), cards]));
+    var extra = el("div", { class: "games" });
+    if (FN) extra.appendChild(gameCard("Check a story", "Found an AI story online? Paste the link and Hypesift AI looks for the original source.", "Check a story", function () { go("check"); }, "a"));
+    if (DB) extra.appendChild(gameCard("Suggest a claim", "Spotted an AI headline that needs checking? Send it in. We verify it before it joins a pack.", "Suggest a claim", function () { go("submit"); }, "c"));
+    if (extra.children.length) app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "More to try" }), extra]));
 
     if (PACKS.length > 1) {
       var list = el("div", { class: "packs" });
@@ -275,7 +300,7 @@
         b.onclick = function (e) { e.stopPropagation(); start(p2); };
         list.appendChild(row2);
       });
-      app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "Earlier weeks" }), list]));
+      app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "Earlier claim packs" }), list]));
     }
   }
 
@@ -287,25 +312,30 @@
     back.onclick = goBack;
     app.appendChild(el("section", { class: "hero" }, [
       el("h1", { class: "rank", text: "How Hypesift works" }),
-      el("p", { text: "A five-minute game that trains one useful habit: asking what the source really says." }),
+      el("p", { text: "Two quick games that build one habit: asking what AI words and headlines really mean." }),
       el("div", { class: "row" }, [back])
     ]));
     app.appendChild(el("section", { class: "sec" }, [
       el("h2", { text: "The idea" }),
-      el("p", { class: "note big", text: "AI news moves fast, and headlines often say more than the facts support. Hypesift gives you real claims to judge, then shows you what the source actually says. Do it a few times and you start spotting exaggeration on your own, in AI news and everywhere else." })
+      el("p", { class: "note big", text: "AI news moves fast, it comes with a lot of jargon, and headlines often say more than the facts support. Hypesift helps with both. AIVoCab teaches the words in plain language. Signal or hype? gives you real claims to judge, then shows you what the source says. Play a little each day and you start to understand the news, and to spot exaggeration on your own." })
     ]));
-    app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "A round, step by step" }), stepsBlock()]));
+    if (WPACKS.length) app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "AIVoCab, step by step" }), stepsBlock(WSTEPS)]));
+    app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "Signal or hype?, step by step" }), stepsBlock(STEPS)]));
     app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "The three calls" }), verdictGuide()]));
     app.appendChild(el("section", { class: "sec" }, [
       el("h2", { text: "Scoring" }),
-      el("p", { class: "note big", text: "Up to 100 points per claim: 60 for the right call, 20 for finding the clue that decides it, and up to 20 for how well your confidence matched. Certain and right pays most. Certain and wrong costs 20. Badges unlock when you get a claim's call and clue both right." })
+      el("p", { class: "note big", text: "AIVoCab: up to 100 points per word. You get 60 for the right meaning and 40 for the right sentence." }),
+      el("p", { class: "note big", text: "Signal or hype?: up to 100 points per claim. You get 60 for the right call, 20 for finding the clue that decides it, and up to 20 for how well your confidence matched. Certain and right pays most. Certain and wrong costs 20. Badges unlock when you get a claim's call and clue both right." })
     ]));
     var faq = el("div", { class: "card faq" });
     FAQ.forEach(function (qa) { faq.appendChild(el("details", {}, [el("summary", { text: qa[0] }), el("div", { class: "in" }, [el("p", { class: "note big", text: qa[1] })])])); });
     app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "Questions" }), faq]));
-    var play = el("button", { class: "btn block", type: "button", text: "Play this week's " + pk.cases.length + " claims" });
+    var row = [];
+    if (WPACKS.length) { var wp = el("button", { class: "btn", type: "button", text: "Play AIVoCab" }); wp.onclick = function () { go("words"); }; row.push(wp); }
+    var play = el("button", { class: "btn" + (WPACKS.length ? " ghost" : ""), type: "button", text: "Play this week's " + pk.cases.length + " claims" });
     play.onclick = function () { start(pk); };
-    app.appendChild(play);
+    row.push(play);
+    app.appendChild(el("div", { class: "row" }, row));
   }
 
   function start(pk) {
@@ -564,6 +594,267 @@
     } catch (e) {}
   }
 
+  /* ---------- AIVoCab: the AI word game ---------- */
+  var WRANKS = [[720, "Word Wizard"], [600, "Fluent"], [450, "Getting there"], [250, "Curious"], [0, "Just starting"]];
+  var WS = { daily: false }; // the AIVoCab round in progress
+  var commWord = null;
+  function wrankFor(score, max) {
+    var f = score / max;
+    for (var i = 0; i < WRANKS.length; i++) { if (f >= WRANKS[i][0] / 800) return WRANKS[i][1]; }
+    return WRANKS[WRANKS.length - 1][1];
+  }
+  function allWords() { var out = []; WPACKS.forEach(function (pk) { pk.words.forEach(function (w) { out.push(w); }); }); return out; }
+  function wordOfDay() {
+    var all = allWords(); if (!all.length) return null;
+    var t = new Date(), n = Math.floor(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()) / 86400000);
+    return all[n % all.length];
+  }
+  function countUp(num, total) {
+    num.textContent = String(total);
+    try {
+      if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches && total > 0) {
+        var t0 = null;
+        var step = function (ts) { if (t0 === null) t0 = ts; var f = Math.min(1, (ts - t0) / 700); num.textContent = String(Math.round(total * (1 - Math.pow(1 - f, 3)))); if (f < 1) requestAnimationFrame(step); else num.textContent = String(total); };
+        num.textContent = "0"; requestAnimationFrame(step);
+      }
+    } catch (e) {}
+  }
+
+  function wordStart(pk, daily) {
+    CASES = pk.words;
+    S = { pack: pk, order: shuffle(pk.words.map(function (_, i) { return i; })), i: 0, score: 0, streak: 0, log: [], pick: {} };
+    WS = { daily: !!daily };
+    if (!daily) { commPack = pk; commWord = pk; }
+    mark("play");
+    wordPlay(); window.scrollTo(0, 0);
+  }
+
+  function wordPlay() {
+    screen = "wplay";
+    var w = CASES[S.order[S.i]];
+    S.pick = {};
+    setChrome("play"); app.innerHTML = "";
+    var mOrder = shuffle([0, 1, 2]), uOrder = shuffle([0, 1, 2]);
+
+    var card = el("section", { class: "card" }, [
+      el("div", { class: "tags" }, [el("span", { class: "chip", text: WS.daily ? "Word of the day" : "AIVoCab" }), el("span", { class: "chip", text: w.level })]),
+      el("p", { class: "claim", text: w.word }),
+      el("span", { class: "meta", text: "Say it: " + w.say })
+    ]);
+    var lock = el("button", { class: "btn block sticky", type: "button", text: "Lock in" });
+    lock.disabled = true;
+    var updateLock = function () { lock.disabled = !(S.pick.m !== undefined && S.pick.u !== undefined); };
+
+    var s1 = el("div", { class: "step" }, [el("span", { class: "label", text: "What does it mean?" })]);
+    var g1 = el("div", { class: "opts", role: "radiogroup", "aria-label": "What does it mean?" });
+    mOrder.forEach(function (k) {
+      var b = el("button", { class: "opt plain", type: "button", role: "radio", "aria-checked": "false", text: w.defs[k] });
+      b.onclick = function () { choose(g1, b); S.pick.m = k; reveal(s2); updateLock(); };
+      g1.appendChild(b);
+    });
+    s1.appendChild(g1);
+
+    var s2 = el("div", { class: "step", hidden: "" }, [el("span", { class: "label", text: "Which sentence uses it correctly?" })]);
+    var g2 = el("div", { class: "opts", role: "radiogroup", "aria-label": "Which sentence uses it correctly?" });
+    uOrder.forEach(function (k) {
+      var b = el("button", { class: "opt plain", type: "button", role: "radio", "aria-checked": "false", text: w.uses[k] });
+      b.onclick = function () { choose(g2, b); S.pick.u = k; updateLock(); };
+      g2.appendChild(b);
+    });
+    s2.appendChild(g2);
+
+    lock.onclick = function () { wordSubmit(w, [g1, g2], [mOrder, uOrder], lock); };
+    [s1, s2, lock].forEach(function (n) { card.appendChild(n); });
+    UI = null;
+    app.appendChild(card);
+  }
+
+  function wordSubmit(w, groups, orders, lock) {
+    var mOk = S.pick.m === w.d, uOk = S.pick.u === w.u;
+    var total = (mOk ? 60 : 0) + (uOk ? 40 : 0);
+    S.score += total;
+    S.log.push({ w: w, mOk: mOk, uOk: uOk, pts: total, vOk: mOk });
+    [[groups[0], orders[0], w.d], [groups[1], orders[1], w.u]].forEach(function (x) {
+      Array.prototype.forEach.call(x[0].children, function (b, idx) {
+        b.disabled = true;
+        if (x[1][idx] === x[2]) b.classList.add("right");
+        else if (b.getAttribute("aria-checked") === "true") b.classList.add("wrong");
+      });
+    });
+    lock.remove();
+    var dot = document.querySelectorAll("#dots i")[S.i];
+    if (dot) dot.className = mOk ? "on" : "no";
+
+    if (WS.daily) {
+      var today = dayStr(new Date());
+      P.words.daily = today;
+      if (mOk && !P.words.learned[w.id]) P.words.learned[w.id] = today;
+      if (P.days.indexOf(today) < 0) P.days.push(today);
+      P.days = P.days.slice(-400);
+      save();
+    }
+
+    var title = mOk && uOk ? "Nailed it" : mOk ? "Right meaning" : "Not quite. Now you know it";
+    var head = el("div", { class: "fb-head " + (mOk ? "ok" : "no") }, [el("h2", { text: title }), el("p", { text: w.plain })]);
+    var pts = el("div", { class: "pts" }, [
+      el("span", { class: mOk ? "hi" : "lo", text: "Meaning " + (mOk ? "+60" : "0") }),
+      el("span", { class: uOk ? "hi" : "lo", text: "Sentence " + (uOk ? "+40" : "0") }),
+      el("span", { class: "tot", text: "= " + total })
+    ]);
+    var note = function (b, t) { return el("div", { class: "pattern" }, [el("b", { text: b }), el("span", { text: t })]); };
+    var body = el("div", { class: "fb-body" }, [
+      pts,
+      note("Use it like this", w.uses[w.u]),
+      note("You will see it in", w.where),
+      note("Don't mix it up", w.mixup),
+      el("a", { href: w.url, target: "_blank", rel: "noopener", text: "Source: " + w.src })
+    ]);
+    var last = S.i === CASES.length - 1;
+    var next = el("button", { class: "btn block sticky", type: "button", text: last ? (WS.daily ? "Done" : "See results") : "Next word" });
+    next.onclick = function () {
+      S.i++;
+      if (last) { if (WS.daily) goBack(); else wordResults(); } else wordPlay();
+      window.scrollTo(0, 0);
+    };
+    body.appendChild(next);
+    var fb = el("section", { class: "fb", "aria-live": "polite" }, [head, body]);
+    app.appendChild(fb);
+    $("#hScore").textContent = S.score;
+    try { fb.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) {}
+  }
+
+  function wordResults() {
+    screen = "wresults"; setChrome("results");
+    var pk = S.pack, n = CASES.length, max = n * 100, total = S.score;
+    var mRight = S.log.filter(function (l) { return l.mOk; }).length;
+    var uRight = S.log.filter(function (l) { return l.uOk; }).length;
+    var rank = wrankFor(total, max);
+    var today = dayStr(new Date());
+    var rec = P.words.packs[pk.id] || { best: 0, plays: 0 };
+    var prev = rec.best, isBest = total > prev;
+    S.log.forEach(function (l) { if (l.mOk && !P.words.learned[l.w.id]) P.words.learned[l.w.id] = today; });
+    if (P.days.indexOf(today) < 0) P.days.push(today);
+    P.days = P.days.slice(-400);
+    P.words.packs[pk.id] = { best: Math.max(prev, total), plays: rec.plays + 1 };
+    save();
+    // the board keeps only the first completed run on each pack; replays are practice
+    var practice = false;
+    if (DB && UID) {
+      if (typeof myDoc.scores[pk.id] === "number") practice = true; else myDoc.scores[pk.id] = total;
+      pushMine();
+    }
+
+    app.innerHTML = "";
+    var num = el("span", { class: "n", text: "0" });
+    var top = el("section", { class: "hero" }, [
+      el("div", { class: "score" }, [num, el("span", { class: "d", text: "/ " + max })]),
+      el("h1", { class: "rank", text: rank }),
+      el("span", { class: "meta", text: (isBest && prev ? "New best (was " + prev + ")" : prev ? "Best: " + Math.max(prev, total) : "First run saved") + " · " + dayStreak() + "-day streak" })
+    ]);
+    if (practice) top.appendChild(el("span", { class: "meta", text: "Practice run, not on the board" }));
+    var learned = Object.keys(P.words.learned).length;
+    var stats = el("div", { class: "tiles" }, [
+      stat(mRight + "/" + n, "meanings right"),
+      stat(uRight + "/" + n, "sentences right"),
+      stat(learned + "/" + allWords().length, "words learned")
+    ]);
+    var blocks = [top, stats];
+    blocks.push(el("div", { class: "list" }, S.log.map(function (l) {
+      return el("div", { class: "li" }, [
+        el("span", { class: "m " + (l.mOk ? "ok" : "no"), text: l.mOk ? "✓" : "×" }),
+        el("div", { class: "t" }, [document.createTextNode(l.w.word), el("small", { text: l.mOk ? l.w.level + " · " + l.w.defs[l.w.d] : "Means: " + l.w.defs[l.w.d] })]),
+        el("span", { class: "p", text: l.pts })
+      ]);
+    })));
+    var again = el("button", { class: "btn", type: "button", text: "Play again" });
+    again.onclick = function () { wordStart(pk); };
+    var row = [again];
+    var morePacks = el("button", { class: "btn ghost", type: "button", text: "More word packs" });
+    morePacks.onclick = function () { go("words"); };
+    row.push(morePacks);
+    if (DB) { var bd = el("button", { class: "btn ghost", type: "button", text: "Leaderboard" }); bd.onclick = function () { commPack = pk; go("community"); }; row.push(bd); }
+    var base = "AIVoCab: " + total + "/" + max + " (" + rank + "). " + mRight + "/" + n + " AI words right. How many do you know?";
+    var shareText = base + " " + SITE;
+    var copy = el("button", { class: "btn ghost", type: "button", text: "Copy result" });
+    copy.onclick = function () {
+      var done = function () { copy.textContent = "Copied"; setTimeout(function () { copy.textContent = "Copy result"; }, 1800); };
+      try { navigator.clipboard.writeText(shareText).then(done, function () { copy.textContent = shareText; }); } catch (e) { copy.textContent = shareText; }
+    };
+    if (navigator.share) {
+      var sh = el("button", { class: "btn ghost", type: "button", text: "Share" });
+      sh.onclick = function () {
+        var send = function (d) { try { navigator.share(d).catch(function () {}); } catch (e) {} };
+        var plain = { title: "AIVoCab", text: base, url: SITE };
+        if (cardCanvas && navigator.canShare) {
+          cardCanvas.toBlob(function (b) {
+            try {
+              if (b) {
+                var withFile = { title: "AIVoCab", text: shareText, files: [new File([b], "aivocab-" + total + ".png", { type: "image/png" })] };
+                if (navigator.canShare(withFile)) { send(withFile); return; }
+              }
+            } catch (e) {}
+            send(plain);
+          }, "image/png");
+        } else send(plain);
+      };
+      row.push(sh);
+    }
+    row.push(copy);
+    cardCanvas = null;
+    blocks.push(shareBlock(total, max, rank, S.log, "words"));
+    blocks.push(el("div", { class: "row" }, row));
+    blocks.push(el("details", {}, [el("summary", { text: "How scoring works" }), el("div", { class: "in" }, [el("p", { class: "note", text: "60 points for the right meaning and 40 for picking the sentence that uses the word correctly, so up to 100 per word. A word counts as learned once you get its meaning right." })])]));
+    blocks.forEach(function (x) { app.appendChild(x); });
+    countUp(num, total);
+  }
+
+  function dailyCard() {
+    var w = wordOfDay();
+    if (!w) return null;
+    var done = P.words.daily === dayStr(new Date());
+    var b = el("button", { class: "btn", type: "button", text: done ? "Play it again" : "Play today's word" });
+    b.onclick = function () { wordStart({ id: "daily", label: "Word of the day", words: [w] }, true); };
+    return el("section", { class: "card daily" }, [
+      el("div", { class: "tags" }, [el("span", { class: "chip", text: "Word of the day" }), el("span", { class: "chip", text: w.level })]),
+      el("p", { class: "claim", text: w.word }),
+      el("span", { class: "meta", text: done ? "Done today. It counts toward your day streak." : "About 30 seconds. Counts toward your day streak." }),
+      el("div", { class: "row" }, [b])
+    ]);
+  }
+
+  function packRow(p2) {
+    var rec = P.words.packs[p2.id];
+    var known = p2.words.filter(function (w) { return P.words.learned[w.id]; }).length;
+    var b = el("button", { class: "btn" + (rec ? " ghost" : ""), type: "button", text: rec ? "Play again" : "Play" });
+    var row2 = el("div", { class: "pack", style: "cursor:pointer" }, [
+      el("div", {}, [el("b", { text: p2.label }), el("small", { text: p2.blurb }), el("small", { text: (rec ? "Best " + rec.best + " / " + p2.words.length * 100 + " · " : "Not played · ") + known + " of " + p2.words.length + " learned" })]),
+      b
+    ]);
+    row2.onclick = function () { wordStart(p2); };
+    b.onclick = function (e) { e.stopPropagation(); wordStart(p2); };
+    return row2;
+  }
+
+  function wordsHome() {
+    screen = "words"; setChrome("words"); app.innerHTML = "";
+    var back = el("button", { class: "btn ghost", type: "button", text: "Back" });
+    back.onclick = goBack;
+    app.appendChild(el("section", { class: "hero" }, [
+      el("h1", { class: "rank", text: "AIVoCab" }),
+      el("p", { text: "Learn the AI words everyone keeps using. One word at a time, about 30 seconds each." }),
+      el("div", { class: "row" }, [back])
+    ]));
+    var d = dailyCard(); if (d) app.appendChild(d);
+    var starter = WPACKS.filter(function (p2) { return p2.track === "starter"; });
+    var weekly = WPACKS.filter(function (p2) { return p2.track === "weekly"; }).reverse();
+    if (weekly.length) {
+      var wl = el("div", { class: "packs" }); weekly.forEach(function (p2) { wl.appendChild(packRow(p2)); });
+      app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "New this week" }), wl]));
+    }
+    var sl = el("div", { class: "packs" }); starter.forEach(function (p2) { sl.appendChild(packRow(p2)); });
+    app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "Start here" }), sl]));
+  }
+
   /* ---------- community screen ---------- */
   var commPack = null;
   function community(pk) {
@@ -580,12 +871,22 @@
     if (dbState === "slow") { app.appendChild(el("p", { class: "note", text: "Can't reach the board yet. It will fill in when the connection returns." })); return; }
     if (dbState === "error") { app.appendChild(el("p", { class: "note", text: "The board isn't available right now." })); return; }
 
-    if (PACKS.length > 1) {
+    var isWords = !!commPack.words;
+    if (WPACKS.length) {
+      var gsw = el("div", { class: "tabs" });
+      [["Signal or hype?", false], ["AIVoCab", true]].forEach(function (g) {
+        var gb = el("button", { class: "nav" + (isWords === g[1] ? " on" : ""), type: "button", text: g[0] });
+        gb.onclick = function () { community(g[1] ? (commWord || WPACKS[0]) : PACKS[PACKS.length - 1]); };
+        gsw.appendChild(gb);
+      });
+      app.appendChild(gsw);
+    }
+    var tabList = isWords ? WPACKS : PACKS.slice().reverse();
+    if (tabList.length > 1) {
       var tabs = el("div", { class: "tabs" });
-      PACKS.slice().reverse().forEach(function (p2) {
-        var tb = el("button", { class: "nav", type: "button", text: p2.label });
-        if (p2 === commPack) tb.style.borderColor = "var(--signal)";
-        tb.onclick = function () { start(p2); };
+      tabList.forEach(function (p2) {
+        var tb = el("button", { class: "nav" + (p2 === commPack ? " on" : ""), type: "button", text: p2.label });
+        tb.onclick = function () { if (isWords) wordStart(p2); else start(p2); };
         tabs.appendChild(tb);
       });
       app.appendChild(tabs);
@@ -610,7 +911,7 @@
         shown.forEach(function (r) {
           var pos = rows.indexOf(r) + 1, me = r.id === UID;
           var nm = me ? "You" : (r.pub ? (names[r.id] || "Someone") : "Anonymous sifter");
-          board.appendChild(el("div", { class: "br" + (me ? " me" : "") }, [el("span", { class: "r", text: String(pos) }), el("span", { class: "nm", text: nm }), el("span", { class: "sc", text: r.score + " / " + commPack.cases.length * 100 })]));
+          board.appendChild(el("div", { class: "br" + (me ? " me" : "") }, [el("span", { class: "r", text: String(pos) }), el("span", { class: "nm", text: nm }), el("span", { class: "sc", text: r.score + " / " + (commPack.cases || commPack.words).length * 100 })]));
         });
       };
       paint({});
@@ -622,7 +923,7 @@
     app.appendChild(sec);
 
     // hardest cases
-    var hs = commPack.cases.map(function (c) { var st = caseStats(c); return { c: c, st: st, pct: st.n ? Math.round(st.ok / st.n * 100) : null }; }).filter(function (x) { return x.st.n >= 3; });
+    var hs = (commPack.cases || []).map(function (c) { var st = caseStats(c); return { c: c, st: st, pct: st.n ? Math.round(st.ok / st.n * 100) : null }; }).filter(function (x) { return x.st.n >= 3; });
     if (hs.length) {
       hs.sort(function (a, b) { return a.pct - b.pct; });
       var hsec = el("section", { class: "sec" }, [el("span", { class: "label", text: "Hardest cases" })]);
@@ -668,7 +969,7 @@
   function rr(x, px, py, w, h, r) {
     x.beginPath(); x.moveTo(px + r, py); x.arcTo(px + w, py, px + w, py + h, r); x.arcTo(px + w, py + h, px, py + h, r); x.arcTo(px, py + h, px, py, r); x.arcTo(px, py, px + w, py, r); x.closePath();
   }
-  function drawCard(total, max, rank, log) {
+  function drawCard(total, max, rank, log, mode) {
     var W = 1080, H = 1080, c = document.createElement("canvas");
     c.width = W; c.height = H;
     var x = c.getContext("2d"), D = '"Young Serif", Georgia, serif', B = '"Hanken Grotesk", "Helvetica Neue", Arial, sans-serif';
@@ -692,7 +993,8 @@
     x.font = "400 62px " + D; x.fillStyle = PLUM; x.fillText("Hype", 150, 118);
     var hw = x.measureText("Hype").width; x.fillStyle = CORAL_INK; x.fillText("sift", 150 + hw, 118);
 
-    var parts = [["Signal", TEAL_INK], [" or ", PLUM], ["hype?", CORAL_INK]], px = 72;
+    var words = mode === "words";
+    var parts = words ? [["AI", TEAL_INK], ["VoCab", CORAL_INK]] : [["Signal", TEAL_INK], [" or ", PLUM], ["hype?", CORAL_INK]], px = 72;
     x.font = "400 100px " + D;
     parts.forEach(function (p) { x.fillStyle = p[1]; x.fillText(p[0], px, 360); px += x.measureText(p[0]).width; });
 
@@ -709,15 +1011,15 @@
       x.font = "800 30px " + B; x.fillStyle = PLUM; x.textAlign = "center"; x.fillText(l.vOk ? "✓" : "×", cx, 903); x.textAlign = "left";
     });
     var right = log.filter(function (l) { return l.vOk; }).length;
-    x.font = "600 42px " + B; x.fillStyle = MUTE; x.fillText(right + " of " + n + " calls right", 72, 992);
-    x.font = "800 32px " + B; x.fillStyle = PLUM; x.textAlign = "right"; x.fillText("Can you sift it?", W - 72, 1024); x.textAlign = "left";
+    x.font = "600 42px " + B; x.fillStyle = MUTE; x.fillText(right + " of " + n + (words ? " meanings right" : " calls right"), 72, 992);
+    x.font = "800 32px " + B; x.fillStyle = PLUM; x.textAlign = "right"; x.fillText(words ? "How many AI words do you know?" : "Can you sift it?", W - 72, 1024); x.textAlign = "left";
     return c;
   }
-  function shareBlock(total, max, rank, log) {
+  function shareBlock(total, max, rank, log, mode) {
     var box = el("section", { class: "sec" }, [el("span", { class: "label", text: "Share card" })]);
     var img = el("img", { class: "share", alt: "Result card: " + total + " of " + max + ", " + rank });
     var canvas = null;
-    var go = function () { try { canvas = cardCanvas = drawCard(total, max, rank, log); img.src = canvas.toDataURL("image/png"); } catch (e) {} };
+    var go = function () { try { canvas = cardCanvas = drawCard(total, max, rank, log, mode); img.src = canvas.toDataURL("image/png"); } catch (e) {} };
     try {
       if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('400 80px "Young Serif"'), document.fonts.load('800 40px "Hanken Grotesk"'), document.fonts.load('600 40px "Hanken Grotesk"')]).then(go, go);
       else go();
@@ -937,7 +1239,13 @@
       try { localStorage.removeItem(KEY); localStorage.removeItem("hypesift-best"); } catch (e) {}
       P = blank(); profile();
     };
-    [head, stats, cal, hist, bs, el("div", { class: "row" }, [reset])].forEach(function (x) { app.appendChild(x); });
+    var wk = Object.keys(P.words.learned).length, wt = allWords().length;
+    var wsec = el("section", { class: "sec" }, [
+      el("span", { class: "label", text: "AI words learned" }),
+      el("div", { class: "meter" }, [el("i", { style: "width:" + (wt ? Math.round(wk / wt * 100) : 0) + "%" })]),
+      el("p", { class: "note", text: wk + " of " + wt + " words. " + (wk ? "Keep going in AIVoCab." : "Play AIVoCab to start collecting words.") })
+    ]);
+    [head, stats, cal, hist, WPACKS.length ? wsec : null, bs, el("div", { class: "row" }, [reset])].forEach(function (x) { if (x) app.appendChild(x); });
   }
 
   /* ---------- navigation: the browser Back button steps back through screens ---------- */
@@ -955,6 +1263,7 @@
     else if (name === "inbox") inbox();
     else if (name === "check") checkScreen();
     else if (name === "how") howPage();
+    else if (name === "words") wordsHome();
     else intro();
     window.scrollTo(0, 0);
   }
