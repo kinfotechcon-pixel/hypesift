@@ -196,7 +196,7 @@
     var pk = PACKS[PACKS.length - 1], rec = P.packs[pk.id], earned = Object.keys(P.badges).length;
     var play = el("button", { class: "btn block", type: "button", text: rec ? "Play again" : "Play " + pk.cases.length + " cases" });
     play.onclick = function () { start(pk); };
-    var hero = el("section", { class: "hero" }, [
+    var hero = el("section", { class: "hero home" }, [
       el("h1", { html: '<span class="s">Signal</span> or <span class="h">hype?</span>' }),
       el("p", { text: "Judge " + pk.cases.length + " real AI claims from this week." }),
       el("div", { class: "chips" }, VERDICTS.map(function (v) { return el("span", { class: "vchip" }, [glyph(v), document.createTextNode(v.name)]); })),
@@ -601,44 +601,46 @@
   function drawCard(total, max, rank, log) {
     var W = 1080, H = 1080, c = document.createElement("canvas");
     c.width = W; c.height = H;
-    var x = c.getContext("2d"), D = '"Space Grotesk", "Helvetica Neue", Arial, sans-serif', M = '"IBM Plex Mono", Consolas, monospace';
-    x.fillStyle = "#0b1120"; x.fillRect(0, 0, W, H);
-    var g = x.createRadialGradient(180, 0, 0, 180, 0, 640); g.addColorStop(0, "rgba(62,224,193,0.24)"); g.addColorStop(1, "rgba(62,224,193,0)"); x.fillStyle = g; x.fillRect(0, 0, W, H);
-    g = x.createRadialGradient(W, 60, 0, W, 60, 560); g.addColorStop(0, "rgba(255,122,107,0.20)"); g.addColorStop(1, "rgba(255,122,107,0)"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+    var x = c.getContext("2d"), D = '"Young Serif", Georgia, serif', B = '"Hanken Grotesk", "Helvetica Neue", Arial, sans-serif';
+    var PLUM = "#3a1f3d", TEAL = "#1f9d8f", TEAL_INK = "#0e6f64", CORAL = "#ff6f59", CORAL_INK = "#c23a24", SUN = "#ffbe0b", MUTE = "#7a5a78";
+    x.fillStyle = "#fff1e2"; x.fillRect(0, 0, W, H);
 
-    // logo mark
-    x.save(); x.translate(72, 64); x.scale(1.5, 1.5);
-    rr(x, 1.5, 1.5, 61, 61, 16); x.fillStyle = "#131b2f"; x.fill(); x.lineWidth = 2; x.strokeStyle = "#27345a"; x.stroke();
-    x.lineCap = "round"; x.lineJoin = "round";
-    x.strokeStyle = "#ff7a6b"; x.lineWidth = 2.4; x.beginPath(); x.moveTo(8, 33); [[11, 21], [14, 43], [17, 17], [20, 46], [23, 25], [26, 38]].forEach(function (p) { x.lineTo(p[0], p[1]); }); x.stroke();
-    x.strokeStyle = "#3ee0c1"; x.lineWidth = 3.4;
-    [[30, 13, 30, 25], [30, 39, 30, 51], [35, 13, 35, 25], [35, 39, 35, 51]].forEach(function (p) { x.beginPath(); x.moveTo(p[0], p[1]); x.lineTo(p[2], p[3]); x.stroke(); });
-    x.beginPath(); x.moveTo(39, 32); x.bezierCurveTo(43, 21, 48, 21, 51, 32); x.bezierCurveTo(54, 43, 59, 43, 60, 32); x.stroke();
+    // sunrise shapes, top right
+    x.fillStyle = SUN; x.beginPath(); x.arc(W - 40, 20, 190, 0, Math.PI * 2); x.fill();
+    x.fillStyle = CORAL; x.beginPath(); x.arc(W - 250, 10, 78, 0, Math.PI * 2); x.fill();
+    x.fillStyle = TEAL; x.beginPath(); x.arc(W - 40, 250, 46, 0, Math.PI * 2); x.fill();
+
+    // logo mark: sun, coral disc, check
+    x.save(); x.translate(72, 64); x.scale(1.55, 1.55);
+    x.fillStyle = SUN; x.beginPath(); x.arc(19, 19, 18, 0, Math.PI * 2); x.fill();
+    x.fillStyle = CORAL; x.beginPath(); x.arc(24.5, 24.5, 9, 0, Math.PI * 2); x.fill();
+    x.strokeStyle = PLUM; x.lineWidth = 3.4; x.lineCap = "round"; x.lineJoin = "round";
+    x.beginPath(); x.moveTo(10, 19); x.lineTo(15.5, 24.5); x.lineTo(26.5, 12.5); x.stroke();
     x.restore();
 
     x.textBaseline = "alphabetic";
-    x.font = "700 60px " + D; x.fillStyle = "#ff7a6b"; x.fillText("Hype", 190, 134);
-    var hw = x.measureText("Hype").width; x.fillStyle = "#3ee0c1"; x.fillText("sift", 190 + hw, 134);
+    x.font = "400 62px " + D; x.fillStyle = PLUM; x.fillText("Hype", 150, 118);
+    var hw = x.measureText("Hype").width; x.fillStyle = CORAL_INK; x.fillText("sift", 150 + hw, 118);
 
-    var parts = [["Signal", "#3ee0c1"], [" or ", "#f2f5fc"], ["hype?", "#ff7a6b"]], px = 72;
-    x.font = "700 96px " + D;
-    parts.forEach(function (p) { x.fillStyle = p[1]; x.fillText(p[0], px, 330); px += x.measureText(p[0]).width; });
+    var parts = [["Signal", TEAL_INK], [" or ", PLUM], ["hype?", CORAL_INK]], px = 72;
+    x.font = "400 100px " + D;
+    parts.forEach(function (p) { x.fillStyle = p[1]; x.fillText(p[0], px, 360); px += x.measureText(p[0]).width; });
 
-    x.font = "700 270px " + D; x.fillStyle = "#3ee0c1"; x.fillText(String(total), 66, 640);
+    x.font = "400 280px " + D; x.fillStyle = TEAL_INK; x.fillText(String(total), 66, 660);
     var sw = x.measureText(String(total)).width;
-    x.font = "500 56px " + M; x.fillStyle = "#8f9bba"; x.fillText("/ " + max, 66 + sw + 24, 640);
+    x.font = "800 58px " + B; x.fillStyle = MUTE; x.fillText("/ " + max, 66 + sw + 24, 660);
 
-    x.font = "700 92px " + D; x.fillStyle = "#f2f5fc"; x.fillText(rank, 72, 790);
+    x.font = "400 88px " + D; x.fillStyle = PLUM; x.fillText(rank, 72, 800);
 
     var n = log.length, r = 28, gap = 24, startX = 72 + r;
     log.forEach(function (l, i) {
       var cx = startX + i * (r * 2 + gap);
-      x.beginPath(); x.arc(cx, 890, r, 0, Math.PI * 2); x.fillStyle = l.vOk ? "#3ee0c1" : "#ff7a6b"; x.fill();
-      x.font = "700 30px " + D; x.fillStyle = "#07101c"; x.textAlign = "center"; x.fillText(l.vOk ? "✓" : "×", cx, 901); x.textAlign = "left";
+      x.beginPath(); x.arc(cx, 892, r, 0, Math.PI * 2); x.fillStyle = l.vOk ? TEAL : CORAL; x.fill();
+      x.font = "800 30px " + B; x.fillStyle = PLUM; x.textAlign = "center"; x.fillText(l.vOk ? "✓" : "×", cx, 903); x.textAlign = "left";
     });
     var right = log.filter(function (l) { return l.vOk; }).length;
-    x.font = "400 40px " + D; x.fillStyle = "#8f9bba"; x.fillText(right + " of " + n + " calls right", 72, 990);
-    x.font = "500 30px " + M; x.fillStyle = "#8f9bba"; x.textAlign = "right"; x.fillText("Can you sift it?", W - 72, 1020); x.textAlign = "left";
+    x.font = "600 42px " + B; x.fillStyle = MUTE; x.fillText(right + " of " + n + " calls right", 72, 992);
+    x.font = "800 32px " + B; x.fillStyle = PLUM; x.textAlign = "right"; x.fillText("Can you sift it?", W - 72, 1024); x.textAlign = "left";
     return c;
   }
   function shareBlock(total, max, rank, log) {
@@ -647,7 +649,7 @@
     var canvas = null;
     var go = function () { try { canvas = cardCanvas = drawCard(total, max, rank, log); img.src = canvas.toDataURL("image/png"); } catch (e) {} };
     try {
-      if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('700 80px "Space Grotesk"'), document.fonts.load('500 40px "IBM Plex Mono"')]).then(go, go);
+      if (document.fonts && document.fonts.load) Promise.all([document.fonts.load('400 80px "Young Serif"'), document.fonts.load('800 40px "Hanken Grotesk"'), document.fonts.load('600 40px "Hanken Grotesk"')]).then(go, go);
       else go();
     } catch (e) { go(); }
     box.appendChild(img);
