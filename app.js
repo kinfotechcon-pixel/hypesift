@@ -56,6 +56,7 @@
     $("#hud").hidden = !playing;
     $("#dots").hidden = !playing;
     $("#navBack").hidden = !playing;
+    $("#navHow").hidden = playing;
     $("#navProfile").hidden = playing;
     $("#navComm").hidden = playing || !DB;
     $("#navInbox").hidden = playing || !(DB && ADMIN);
@@ -191,51 +192,120 @@
   }
 
   /* ---------- intro ---------- */
+  /* ---------- guide content, shared by the home page and the How it works page ---------- */
+  var STEPS = [
+    ["Read the claim", "Each round is one real AI headline, put in plain words and checked against its source."],
+    ["Make your call", "Pick Signal, Hype or Fine print. Then choose the clue that decides it."],
+    ["Say how sure you are", "Guess, Likely or Certain. Sure and right earns the most. Sure and wrong costs points."],
+    ["See the facts", "You get the verdict, the reason, the source link and a rule of thumb for next time."]
+  ];
+  var MEANS = {
+    solid: "The claim holds up against a solid source.",
+    overstated: "The claim stretches or exaggerates what the source says.",
+    context: "It is true, but important context is missing."
+  };
+  var FAQ = [
+    ["Do I need to know about AI?", "No. Every claim is written in plain words, and the answer screen explains the facts. You pick up the jargon as you go."],
+    ["Who picks the claims?", "Each week's 8 claims come from recent AI news. They are researched with AI help and checked against the original source: a company post, a study, a filing or a major report. Every claim links to its source, so you can check it yourself. If you spot a mistake, use Suggest a claim to tell us."],
+    ["How long does it take?", "About five minutes for a set of 8. A new set arrives every week, and older weeks stay in the archive."],
+    ["What is Check a story?", "Paste a link to an AI story you found online. Hypesift AI reads it, searches the web for the original source and gives a verdict with reasons. It can be wrong, so open the sources and judge for yourself."],
+    ["What is AIVoCab?", "A word game we are building. You will see an AI word like \"hallucination\", guess what it means, and learn it in plain language. Coming soon."],
+    ["Is it free? What do you keep about me?", "It is free to play. There is no account and no email. Your progress stays on your device. If you open the Board, your score is stored under a random ID, and a nickname shows only if you choose one."]
+  ];
+
+  function stepsBlock() {
+    var box = el("div", { class: "how-steps" });
+    STEPS.forEach(function (s, i) {
+      box.appendChild(el("div", { class: "how-step" }, [el("span", { class: "n", text: String(i + 1) }), el("b", { text: s[0] }), el("p", { text: s[1] })]));
+    });
+    return box;
+  }
+  function verdictGuide() {
+    var box = el("div", { class: "verdicts" });
+    VERDICTS.forEach(function (v) {
+      box.appendChild(el("div", { class: "vrow" }, [glyph(v), el("div", {}, [el("b", { text: v.name }), el("span", { text: MEANS[v.k] })])]));
+    });
+    return box;
+  }
+  function gameCard(title, text, btnText, onclick, tone, tag) {
+    var b = el("button", { class: "btn" + (onclick ? "" : " ghost"), type: "button", text: btnText });
+    if (onclick) b.onclick = onclick; else b.disabled = true;
+    return el("div", { class: "game " + tone }, [tag ? el("span", { class: "tag", text: tag }) : null, el("h3", { text: title }), el("p", { text: text }), b]);
+  }
+
+  /* ---------- home ---------- */
   function intro() {
     screen = "intro"; setChrome("intro"); app.innerHTML = "";
     var pk = PACKS[PACKS.length - 1], rec = P.packs[pk.id], earned = Object.keys(P.badges).length;
-    var play = el("button", { class: "btn block", type: "button", text: rec ? "Play again" : "Play " + pk.cases.length + " cases" });
+    var play = el("button", { class: "btn", type: "button", text: rec ? "Play this week again" : "Play this week's " + pk.cases.length + " claims" });
     play.onclick = function () { start(pk); };
+    var how = el("button", { class: "btn ghost", type: "button", text: "How it works" });
+    how.onclick = function () { go("how"); };
     var hero = el("section", { class: "hero home" }, [
-      el("h1", { html: '<span class="s">Signal</span> or <span class="h">hype?</span>' }),
-      el("p", { text: "Judge " + pk.cases.length + " real AI claims from this week." }),
-      el("div", { class: "chips" }, VERDICTS.map(function (v) { return el("span", { class: "vchip" }, [glyph(v), document.createTextNode(v.name)]); })),
-      play,
-      el("details", {}, [
-        el("summary", { text: "How it works" }),
-        el("div", { class: "in" }, [
-          el("p", { class: "note", text: "Each case is a real AI claim. Pick Signal, Hype or Fine print. Then pick the clue that decides it. Then say how sure you are." }),
-          el("p", { class: "note", text: "Scoring: 60 for the right call, 20 for the clue, and -20 to +20 for confidence. Certain and right pays most; Certain and wrong costs points." }),
-          el("p", { class: "note", text: "Keyboard: press 1, 2, 3 to pick, and Enter to lock in or go to the next case." })
-        ])
-      ]),
-      el("span", { class: "meta", text: rec ? "Best on this pack: " + rec.best + " / " + pk.cases.length * 100 : pk.label + " · checked " + pk.checked })
+      el("h1", { html: 'Spot the <span class="h">hype</span> in AI news.' }),
+      el("p", { text: "Hypesift is a quick game for anyone curious about AI. Read a real headline, decide if it holds up, then see what the source really says. No tech background needed." }),
+      el("div", { class: "row" }, [play, how]),
+      el("span", { class: "meta", text: (rec ? "Your best: " + rec.best + " / " + pk.cases.length * 100 + " · " : "") + pk.label + " · about 5 minutes · checked " + pk.checked })
     ]);
-    var stats = el("div", { class: "tiles" }, [
-      stat(String(dayStreak()), "day streak"),
-      stat(String(P.runs.length), "runs"),
-      stat(earned + "/" + allPatterns().length, "badges")
-    ]);
-    app.appendChild(hero); app.appendChild(stats);
-    if (DB) {
-      var sg = el("button", { class: "btn ghost", type: "button", text: "Suggest a claim" });
-      sg.onclick = function () { go("submit"); };
-      var chkBtn = null;
-      if (FN) { chkBtn = el("button", { class: "btn", type: "button", text: "Check a story" }); chkBtn.onclick = function () { go("check"); }; }
-      app.appendChild(el("div", { class: "row" }, [chkBtn, sg]));
+    app.appendChild(hero);
+    if (P.runs.length) {
+      app.appendChild(el("div", { class: "tiles" }, [
+        stat(String(dayStreak()), "day streak"),
+        stat(String(P.runs.length), "runs"),
+        stat(earned + "/" + allPatterns().length, "badges")
+      ]));
     }
+
+    var more = el("button", { class: "btn ghost", type: "button", text: "Read the full guide" });
+    more.onclick = function () { go("how"); };
+    app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "How it works" }), stepsBlock(), verdictGuide(), el("div", { class: "row" }, [more])]));
+
+    var cards = el("div", { class: "games" });
+    if (FN) cards.appendChild(gameCard("Check a story", "Found an AI story online? Paste the link and Hypesift AI looks for the original source.", "Check a story", function () { go("check"); }, "a"));
+    cards.appendChild(gameCard("AIVoCab", "Learn one AI word at a time. Guess what it means, then see it used in a sentence.", "Coming soon", null, "b", "New word game"));
+    if (DB) cards.appendChild(gameCard("Suggest a claim", "Spotted an AI headline that needs checking? Send it in. We verify it before it joins a pack.", "Suggest a claim", function () { go("submit"); }, "c"));
+    app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "More to try" }), cards]));
+
     if (PACKS.length > 1) {
       var list = el("div", { class: "packs" });
       PACKS.slice(0, -1).reverse().forEach(function (p2) {
         var r2 = P.packs[p2.id], b = el("button", { class: "btn ghost", type: "button", text: "Play" });
-        b.onclick = function () { start(p2); };
         var row2 = el("div", { class: "pack", style: "cursor:pointer" }, [el("div", {}, [el("b", { text: p2.label }), el("small", { text: r2 ? "Best " + r2.best + " / " + p2.cases.length * 100 : "Not played" })]), b]);
         row2.onclick = function () { start(p2); };
         b.onclick = function (e) { e.stopPropagation(); start(p2); };
         list.appendChild(row2);
       });
-      app.appendChild(el("section", { class: "sec" }, [el("span", { class: "label", text: "Archive" }), list]));
+      app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "Earlier weeks" }), list]));
     }
+  }
+
+  /* ---------- how it works (full guide) ---------- */
+  function howPage() {
+    screen = "how"; setChrome("how"); app.innerHTML = "";
+    var pk = PACKS[PACKS.length - 1];
+    var back = el("button", { class: "btn ghost", type: "button", text: "Back" });
+    back.onclick = goBack;
+    app.appendChild(el("section", { class: "hero" }, [
+      el("h1", { class: "rank", text: "How Hypesift works" }),
+      el("p", { text: "A five-minute game that trains one useful habit: asking what the source really says." }),
+      el("div", { class: "row" }, [back])
+    ]));
+    app.appendChild(el("section", { class: "sec" }, [
+      el("h2", { text: "The idea" }),
+      el("p", { class: "note big", text: "AI news moves fast, and headlines often say more than the facts support. Hypesift gives you real claims to judge, then shows you what the source actually says. Do it a few times and you start spotting exaggeration on your own, in AI news and everywhere else." })
+    ]));
+    app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "A round, step by step" }), stepsBlock()]));
+    app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "The three calls" }), verdictGuide()]));
+    app.appendChild(el("section", { class: "sec" }, [
+      el("h2", { text: "Scoring" }),
+      el("p", { class: "note big", text: "Up to 100 points per claim: 60 for the right call, 20 for finding the clue that decides it, and up to 20 for how well your confidence matched. Certain and right pays most. Certain and wrong costs 20. Badges unlock when you get a claim's call and clue both right." })
+    ]));
+    var faq = el("div", { class: "card faq" });
+    FAQ.forEach(function (qa) { faq.appendChild(el("details", {}, [el("summary", { text: qa[0] }), el("div", { class: "in" }, [el("p", { class: "note big", text: qa[1] })])])); });
+    app.appendChild(el("section", { class: "sec" }, [el("h2", { text: "Questions" }), faq]));
+    var play = el("button", { class: "btn block", type: "button", text: "Play this week's " + pk.cases.length + " claims" });
+    play.onclick = function () { start(pk); };
+    app.appendChild(play);
   }
 
   function start(pk) {
@@ -884,6 +954,7 @@
     else if (name === "submit") submitScreen();
     else if (name === "inbox") inbox();
     else if (name === "check") checkScreen();
+    else if (name === "how") howPage();
     else intro();
     window.scrollTo(0, 0);
   }
@@ -898,6 +969,7 @@
 
   $("#home").onclick = function (e) { e.preventDefault(); go("intro"); };
   $("#navBack").onclick = goBack;
+  $("#navHow").onclick = function () { go("how"); };
   $("#navProfile").onclick = function () { go("profile"); };
   $("#navComm").onclick = function () { go("community"); };
   $("#navInbox").onclick = function () { go("inbox"); };

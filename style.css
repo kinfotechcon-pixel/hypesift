@@ -204,6 +204,32 @@ details .in { display: flex; flex-direction: column; gap: 12px; padding-top: 12p
 .note { color: var(--mute); font-size: 15px; margin: 0; }
 .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
 
+/* home guide, game cards, how it works page */
+.note.big { font-size: 17.5px; line-height: 1.6; color: var(--fg); }
+.how-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.how-step { background: var(--panel); border-radius: 22px; padding: 16px 18px 18px; min-width: 0; }
+.how-step .n { display: block; font: 400 32px/1 var(--display); color: var(--hype-ink); margin-bottom: 6px; }
+.how-step b { display: block; font: 800 17px/1.25 var(--body); }
+.how-step p { margin: 4px 0 0; color: var(--mute); font-size: 15.5px; line-height: 1.45; }
+.verdicts { display: flex; flex-direction: column; gap: 10px; }
+.vrow { display: flex; gap: 14px; align-items: center; background: var(--panel); border-radius: 20px; padding: 13px 18px; }
+.vrow .g { width: 36px; height: 36px; font-size: 19px; }
+.vrow b { display: block; font: 800 17px/1.25 var(--body); }
+.vrow span { color: var(--mute); font-size: 15.5px; line-height: 1.4; }
+.games { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.games .game:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.game { border-radius: 24px; padding: 22px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; min-width: 0; }
+.game.a { background: var(--mint); }
+.game.b { background: var(--butter); }
+.game.c { background: var(--panel-2); }
+.game .tag { background: var(--fg); color: #fff6ea; font: 800 12.5px/1 var(--body); padding: 6px 10px; border-radius: 999px; transform: rotate(-2deg); }
+.game h3 { margin: 0; font: 400 25px/1.1 var(--display); }
+.game p { margin: 0 0 6px; font-size: 16.5px; line-height: 1.45; }
+.faq { gap: 0; padding-top: 6px; padding-bottom: 14px; }
+.faq details { padding: 14px 0 12px; }
+.faq details:first-child { border-top: 0; }
+.faq summary { font-size: 17px; }
+
 /* share card, forms, inbox, toast, sticky actions */
 button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .btn.sticky { position: sticky; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 6; box-shadow: 0 10px 24px rgba(58, 31, 61, .28); }
@@ -236,6 +262,11 @@ button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   .hard { grid-template-columns: minmax(0, 1fr) 70px 44px; }
   .card { padding: 18px; }
   .hero.home { padding: 26px 20px 22px; }
+  .how-steps, .games { grid-template-columns: 1fr; }
+  #navHow { display: none; }
+  .hero.home .meta { max-width: 62%; }
+  .hero.home:after { width: 150px; height: 150px; right: -48px; bottom: -56px; }
+  .hero.home:before { width: 64px; height: 64px; right: 72px; bottom: -26px; }
   .hide-s { display: none; }
   .nav { padding: 10px 10px; }
   .word { font-size: 23px; }
