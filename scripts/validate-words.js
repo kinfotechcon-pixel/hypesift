@@ -32,5 +32,26 @@ D.packs.forEach((pk) => {
   });
   console.log(pk.label + " (" + pk.id + "): " + pk.words.length + " words, levels " + JSON.stringify(levels) + ", right-answer positions meaning " + JSON.stringify(dpos) + " sentence " + JSON.stringify(upos));
 });
+// The longer daily list (daily-words.js) uses the same word shape, with ids unique across both files.
+global.window = {};
+eval(fs.readFileSync(path.join(__dirname, "..", "daily-words.js"), "utf8"));
+const DAILY = window.HYPESIFT_DAILY;
+const dailyPos = { d: [0, 0, 0], u: [0, 0, 0] };
+DAILY.words.forEach((w) => {
+  const at = "daily/" + w.id;
+  if (seenWords[w.id]) problems.push("duplicate word id " + w.id);
+  seenWords[w.id] = true;
+  ["id", "word", "say", "plain", "where", "mixup", "src"].forEach((k) => { if (!w[k]) problems.push(at + ": missing " + k); });
+  if (LEVELS.indexOf(w.level) < 0) problems.push(at + ": bad level " + w.level);
+  if (!/^https:\/\//.test(w.url || "")) problems.push(at + ": url must start with https://");
+  [["defs", "d"], ["uses", "u"]].forEach(([list, idx]) => {
+    if (!Array.isArray(w[list]) || w[list].length !== 3) { problems.push(at + ": " + list + " needs exactly 3 items"); return; }
+    if (!(w[idx] >= 0 && w[idx] < 3)) problems.push(at + ": " + idx + " must be 0, 1 or 2"); else dailyPos[idx][w[idx]]++;
+    if (new Set(w[list]).size !== 3) problems.push(at + ": " + list + " has duplicates");
+    w[list].forEach((t) => { if (!t || t.length > 140) problems.push(at + ": " + list + " item empty or over 140 characters"); });
+  });
+  if (w.plain && w.plain.length > 330) problems.push(at + ": plain is over 330 characters");
+});
+console.log("Daily list: " + DAILY.words.length + " words (answer order is shuffled in the game, so position does not matter)");
 if (problems.length) { console.error("\nProblems:\n - " + problems.join("\n - ")); process.exit(1); }
 console.log("words.js is valid (" + Object.keys(seenWords).length + " words)");

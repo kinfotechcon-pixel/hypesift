@@ -20,7 +20,7 @@ The site is plain static files served by GitHub Pages from the `main` branch. **
 ## The two games
 
 - **Signal or hype?** Real AI claims, judged against their sources. Content lives in `packs.js`.
-- **AIVoCab** The AI word game. Content lives in `words.js`. Add a weekly pack by appending one object to `WORD_PACKS` (8 words, `track: "weekly"`), then run `node scripts/validate-words.js`.
+- **AIVoCab** The AI word game. Content lives in `words.js`. The Word of the day draws from a longer list in `daily-words.js` (33 words, then the 24 pack words), so it does not repeat for 57 days. Add words there to lengthen the cycle. Add a weekly pack by appending one object to `WORD_PACKS` (8 words, `track: "weekly"`), then run `node scripts/validate-words.js`.
 
 ## Adding a weekly pack
 

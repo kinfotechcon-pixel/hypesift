@@ -675,7 +675,13 @@
     for (var i = 0; i < WRANKS.length; i++) { if (f >= WRANKS[i][0] / 800) return WRANKS[i][1]; }
     return WRANKS[WRANKS.length - 1][1];
   }
-  function allWords() { var out = []; WPACKS.forEach(function (pk) { pk.words.forEach(function (w) { out.push(w); }); }); return out; }
+  function packWords() { var out = []; WPACKS.forEach(function (pk) { pk.words.forEach(function (w) { out.push(w); }); }); return out; }
+  // Every word a player can learn: the longer daily list first, then the pack words (no repeats by id).
+  function allWords() {
+    var seen = {}, out = [];
+    ((window.HYPESIFT_DAILY && window.HYPESIFT_DAILY.words) || []).concat(packWords()).forEach(function (w) { if (!seen[w.id]) { seen[w.id] = 1; out.push(w); } });
+    return out;
+  }
   function wordOfDay() {
     var all = allWords(); if (!all.length) return null;
     var t = new Date(), n = Math.floor(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()) / 86400000);
